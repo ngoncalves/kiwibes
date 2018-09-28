@@ -27,7 +27,10 @@
 #include "kiwibes.h"
 #include <cstdlib>
 #include <cstring>
+#include <string>
 #include <iostream>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include "NanoLog/NanoLog.hpp"
 
 typedef struct{
@@ -37,7 +40,7 @@ typedef struct{
 } OPTIONS_T;
 
 static OPTIONS_T kiwibes_options[] = {
-  { "-l","Log level. Defaults to 1",NULL},
+  { "-l","Log level. Defaults to 0",NULL},
   { "-s","Maximum size of the log, in MB. Defaults to 1 MB",NULL},
   { "-p","HTTP server listening port. Defaults to 4242",NULL},
   { "-r","Maximum job runtime, in seconds. Defaults to 3600",NULL},
@@ -48,7 +51,7 @@ Kiwibes::Kiwibes()
   /* set the default values for the options */
   home           = NULL; 
   logMaxSize     = 1; 
-  logLevel       = 1;  
+  logLevel       = 0;  
   port           = 4242;
   jobMaxRuntime  = 3600;
 
@@ -65,6 +68,8 @@ Kiwibes::~Kiwibes()
 
 void Kiwibes::init(int argc,char **argv)
 {
+  std::cout << "[INFO] initialization of the Kiwibes server" << std::endl;
+
   /* parse the command line arguments */
   parse_cmd_line(argc,argv);
 
@@ -73,9 +78,26 @@ void Kiwibes::init(int argc,char **argv)
 
   /* start logging */
   nanolog::initialize(nanolog::GuaranteedLogger(),
-                      home + std::string("/log/"),
+                      home + std::string("/logs/"),
                       "kiwibes.log",
                       logMaxSize);  
+   
+  if(0 == logLevel)
+  {
+    nanolog::set_log_level(nanolog::LogLevel::CRIT);
+  }
+  else if(1 == logLevel)
+  {
+    nanolog::set_log_level(nanolog::LogLevel::WARN);  
+  }
+  else
+  {
+    nanolog::set_log_level(nanolog::LogLevel::INFO);    
+  }
+
+  /* initialization is complete, when reaching here */
+  std::cout << "[INFO] the Kiwibes server is initialized" << std::endl;
+  LOG_INFO << "the Kiwibes server is initialized";
 }
 
 void Kiwibes::parse_cmd_line(int argc,char **argv)  
@@ -115,7 +137,39 @@ void Kiwibes::parse_cmd_line(int argc,char **argv)
 
 void Kiwibes::setup_home(void)
 {
+  /* create, if it does not exist, the following structure:
+    <home>
+      +---- logs/
+      +---- jobs/
+   */
+  std::string folder[] = {
+    std::string(home),
+    std::string(home) + std::string("/") + std::string("logs"),
+    std::string(home) + std::string("/") + std::string("jobs"),
+  };
 
+  for(unsigned int i = 0; i < sizeof(folder)/sizeof(std::string); i++)
+  {
+    struct stat path;
+    
+    if(0 != stat(folder[i].c_str(),&path))
+    {
+      /* folder does not exist, create it with the permissions:
+          - read, write and execute by the owner
+          - read and execute by the group
+          - read and execute by others 
+       */
+      if(0 != mkdir(folder[i].c_str(),S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH))
+      {
+        std::cout << "[ERROR] failed to create folder: " << folder[i] << std::endl;
+        exit(2);
+      }
+      else
+      {
+        std::cout << "[INFO] created folder: " << folder[i] << std::endl;  
+      }
+    }
+  }
 }
 
 void Kiwibes::show_help(void)
