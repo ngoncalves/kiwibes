@@ -1,0 +1,57 @@
+# Kiwibes Automation Server
+# =========================
+# Copyright 2018, Nelson Filipe Ferreira Goncalves
+# nelsongoncalves@patois.eu
+#
+# License
+# -------
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details. You should have received
+# a copy of the GNU General Public License along with this program.
+# If not, see <http://www.gnu.org/licenses/>.
+#   
+# Summary
+# -------
+# This Makefile builds the Kiwibes Automation Server.
+
+#----------------------------------------------------------------------------
+# Directory organization 
+#----------------------------------------------------------------------------
+
+SOURCE := .
+BUILD  := ../build
+INCS   := ../3rd_party
+LIBS   := -pthread
+
+#----------------------------------------------------------------------------
+# Build Tools
+#----------------------------------------------------------------------------
+CC     := g++ 
+CFLAGS := -std=c++11 -Wall -Werror -O2 -I $(INCS)
+
+BIN     := $(BUILD)/kiwibes
+SOURCES := $(wildcard $(SOURCE)/*.cpp)
+OBJECTS := $(patsubst $(SOURCE)/%.cpp,$(BUILD)/%.o,$(SOURCES))
+
+#----------------------------------------------------------------------------
+# Target
+#----------------------------------------------------------------------------
+
+all: $(OBJECTS) NanoLog
+	@echo '============================================='
+	@echo 'Building the Kiwibes Automation Server       '
+	@echo '============================================='
+	$(CC) $(LIBS) -o $(BIN) $(OBJECTS) $(BUILD)/NanoLog.o 
+
+NanoLog:
+	$(CC) $(CFLAGS) -c -o $(BUILD)/NanoLog.o ../3rd_party/NanoLog/NanoLog.cpp
+
+$(BUILD)/%.o: $(SOURCE)/%.cpp
+	$(CC) $(CFLAGS) -c -o $@ $<
