@@ -27,7 +27,8 @@
 #ifndef __KIWIBES_H__
 #define __KIWIBES_H__
 
-#include <string>
+#include "kiwibes_job.h"
+#include <vector>
 
 class Kiwibes {
 
@@ -46,7 +47,7 @@ public:
     @param argv   array of command line input arguments
 
     This function parses the command line arguments, sets up the
-    home folder and starts the logger.
+    home folder, starts the logger and loads the jobs descriptions.
 
     In case of error, it forces the application to exit.
   */
@@ -81,13 +82,19 @@ private:
    */
   void parse_cmd_line(int argc, char **argv);
 
+  /** Load job descriptions
+   */
+  void load_jobs(void);
+
 private:
   /* command line options */
   const char   *home;           /* the server home folder */
   unsigned int logMaxSize;      /* maximum size of the log, in bytes */
   unsigned int logLevel;        /* logging level */
   unsigned int port;            /* server listening port */
-  unsigned int jobMaxRuntime;   /* default maximum runtime, in seconds, for a job */
+
+  /* jobs */
+  std::vector<KiwibesJob *> jobs;
 };
 
 #endif

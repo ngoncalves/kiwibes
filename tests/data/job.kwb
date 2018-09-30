@@ -1,0 +1,8 @@
+# This is a comment
+name: My very nice job name
+schedule: * * * 12 45 *
+executable: /bin/bash
+max_runtime: 60
+---
+# a bash script
+ls $(pwd)/..

@@ -25,13 +25,24 @@
   See the respective header file for details.
 */
 #include "kiwibes.h"
+
 #include <cstdlib>
 #include <cstring>
 #include <string>
 #include <iostream>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <dirent.h>
+#include <cerrno>
+
 #include "NanoLog/NanoLog.hpp"
+
+/*--------- Exit Error Conditions -------------------------------- */
+#define EXIT_ERROR_NO_ERROR            0  /* failed to load the jobs descriptions */
+#define EXIT_ERROR_FAIL_JOB_LOAD       1  /* failed to load the jobs descriptions */
+#define EXIT_ERROR_FAIL_CMD_LINE_PARSE 2  /* failed to parse the command line */
+#define EXIT_ERROR_FAIL_HOME_SETUP     3  /* failed to setup the home folder */
+
 
 typedef struct{
   const char *option;
@@ -43,27 +54,27 @@ static OPTIONS_T kiwibes_options[] = {
   { "-l","Log level. Defaults to 0",NULL},
   { "-s","Maximum size of the log, in MB. Defaults to 1 MB",NULL},
   { "-p","HTTP server listening port. Defaults to 4242",NULL},
-  { "-r","Maximum job runtime, in seconds. Defaults to 3600",NULL},
 };
 
 Kiwibes::Kiwibes()
 {
   /* set the default values for the options */
-  home           = NULL; 
-  logMaxSize     = 1; 
-  logLevel       = 0;  
-  port           = 4242;
-  jobMaxRuntime  = 3600;
+  home       = NULL; 
+  logMaxSize = 1; 
+  logLevel   = 0;  
+  port       = 4242;
 
   kiwibes_options[0].value = &logLevel;
   kiwibes_options[1].value = &logMaxSize;
   kiwibes_options[2].value = &port;
-  kiwibes_options[3].value = &jobMaxRuntime;
 }
 
 Kiwibes::~Kiwibes()
 {
-
+  for(unsigned int j = 0; j < jobs.size(); j++)
+  {
+    delete jobs[j];
+  }
 }
 
 void Kiwibes::init(int argc,char **argv)
@@ -95,9 +106,55 @@ void Kiwibes::init(int argc,char **argv)
     nanolog::set_log_level(nanolog::LogLevel::INFO);    
   }
 
+  /* load the jobs in the jobs folder, if any exist */
+  load_jobs();
+
   /* initialization is complete, when reaching here */
   std::cout << "[INFO] the Kiwibes server is initialized" << std::endl;
   LOG_INFO << "the Kiwibes server is initialized";
+}
+
+void Kiwibes::load_jobs(void)
+{
+  std::string jobs_folder = std::string(home) + std::string("/") + std::string("jobs");
+  DIR         *directory  = opendir(jobs_folder.c_str());
+
+  if(NULL != directory)
+  {
+    struct dirent *entry = readdir(directory);
+
+    while(NULL != entry)
+    {
+      /* job description file names have the extension '.kwb' */
+      if(NULL != strstr(entry->d_name,".kwb"))
+      {
+        KiwibesJob *job = new KiwibesJob;
+
+        std::string fname = jobs_folder + std::string("/") + std::string(entry->d_name);
+
+        std::cout << "[INFO] loading job: " << fname << std::endl;
+
+        if(true == job->load(fname.c_str()))
+        {
+          jobs.push_back(job);
+        }
+        else
+        {
+          std::cout << "[ERROR] failed to load job: " << fname << std::endl;
+          delete job;
+        }
+      }
+      entry = readdir(directory);
+    }
+
+    closedir (directory);
+  }
+  else
+  {
+    /* could not open directory */
+    std::cout << "[ERROR] failed to list jobs folder: " << jobs_folder << std::endl;
+    exit(EXIT_ERROR_FAIL_JOB_LOAD);
+  }  
 }
 
 void Kiwibes::parse_cmd_line(int argc,char **argv)  
@@ -105,7 +162,7 @@ void Kiwibes::parse_cmd_line(int argc,char **argv)
   if(2 > argc)
   {
     show_help();
-    exit(1);
+    exit(EXIT_ERROR_FAIL_CMD_LINE_PARSE);
   }
   else
   {
@@ -129,7 +186,7 @@ void Kiwibes::parse_cmd_line(int argc,char **argv)
       if(!found)
       {
         show_help();
-        exit(1);
+        exit(EXIT_ERROR_FAIL_CMD_LINE_PARSE);
       }
     }
   }
@@ -162,7 +219,7 @@ void Kiwibes::setup_home(void)
       if(0 != mkdir(folder[i].c_str(),S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH))
       {
         std::cout << "[ERROR] failed to create folder: " << folder[i] << std::endl;
-        exit(2);
+        exit(EXIT_ERROR_FAIL_HOME_SETUP);
       }
       else
       {
@@ -189,5 +246,5 @@ int Kiwibes::run(void)
 {
   /* TODO */
 
-  return 0;
+  return EXIT_ERROR_NO_ERROR;
 }
