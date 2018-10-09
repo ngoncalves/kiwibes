@@ -25,6 +25,8 @@
   See the respective header file for details.
 */
 #include "kiwibes.h"
+#include "kiwibes_scheduler.h"
+#include "kiwibes_http.h"
 
 #include <cstdlib>
 #include <cstring>
@@ -51,7 +53,7 @@ typedef struct{
 } OPTIONS_T;
 
 static OPTIONS_T kiwibes_options[] = {
-  { "-l","Log level. Defaults to 0",NULL},
+  { "-l","Log level. Defaults to 0 (critical messages only)",NULL},
   { "-s","Maximum size of the log, in MB. Defaults to 1 MB",NULL},
   { "-p","HTTP server listening port. Defaults to 4242",NULL},
 };
@@ -71,10 +73,7 @@ Kiwibes::Kiwibes()
 
 Kiwibes::~Kiwibes()
 {
-  for(unsigned int j = 0; j < jobs.size(); j++)
-  {
-    delete jobs[j];
-  }
+  
 }
 
 void Kiwibes::init(int argc,char **argv)
@@ -106,55 +105,9 @@ void Kiwibes::init(int argc,char **argv)
     nanolog::set_log_level(nanolog::LogLevel::INFO);    
   }
 
-  /* load the jobs in the jobs folder, if any exist */
-  load_jobs();
-
   /* initialization is complete, when reaching here */
   std::cout << "[INFO] the Kiwibes server is initialized" << std::endl;
   LOG_INFO << "the Kiwibes server is initialized";
-}
-
-void Kiwibes::load_jobs(void)
-{
-  std::string jobs_folder = std::string(home) + std::string("/") + std::string("jobs");
-  DIR         *directory  = opendir(jobs_folder.c_str());
-
-  if(NULL != directory)
-  {
-    struct dirent *entry = readdir(directory);
-
-    while(NULL != entry)
-    {
-      /* job description file names have the extension '.kwb' */
-      if(NULL != strstr(entry->d_name,".kwb"))
-      {
-        KiwibesJob *job = new KiwibesJob;
-
-        std::string fname = jobs_folder + std::string("/") + std::string(entry->d_name);
-
-        std::cout << "[INFO] loading job: " << fname << std::endl;
-
-        if(true == job->load(fname.c_str()))
-        {
-          jobs.push_back(job);
-        }
-        else
-        {
-          std::cout << "[ERROR] failed to load job: " << fname << std::endl;
-          delete job;
-        }
-      }
-      entry = readdir(directory);
-    }
-
-    closedir (directory);
-  }
-  else
-  {
-    /* could not open directory */
-    std::cout << "[ERROR] failed to list jobs folder: " << jobs_folder << std::endl;
-    exit(EXIT_ERROR_FAIL_JOB_LOAD);
-  }  
 }
 
 void Kiwibes::parse_cmd_line(int argc,char **argv)  
@@ -194,36 +147,31 @@ void Kiwibes::parse_cmd_line(int argc,char **argv)
 
 void Kiwibes::setup_home(void)
 {
-  /* create, if it does not exist, the following structure:
-    <home>
-      +---- logs/
-      +---- jobs/
-   */
-  std::string folder[] = {
+  std::string folders[] = {
     std::string(home),
-    std::string(home) + std::string("/") + std::string("logs"),
-    std::string(home) + std::string("/") + std::string("jobs"),
+    std::string(home) + std::string("/jobs"),
+    std::string(home) + std::string("/logs"),
   };
 
-  for(unsigned int i = 0; i < sizeof(folder)/sizeof(std::string); i++)
+  for(std::string folder : folders)
   {
     struct stat path;
     
-    if(0 != stat(folder[i].c_str(),&path))
+    if(0 != stat(folder.c_str(),&path))
     {
       /* folder does not exist, create it with the permissions:
           - read, write and execute by the owner
           - read and execute by the group
           - read and execute by others 
-       */
-      if(0 != mkdir(folder[i].c_str(),S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH))
+        */
+      if(0 != mkdir(folder.c_str(),S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH))
       {
-        std::cout << "[ERROR] failed to create folder: " << folder[i] << std::endl;
+        std::cout << "[ERROR] failed to create folder: " << folder << std::endl;
         exit(EXIT_ERROR_FAIL_HOME_SETUP);
       }
       else
       {
-        std::cout << "[INFO] created folder: " << folder[i] << std::endl;  
+        std::cout << "[INFO] created folder: " << folder << std::endl;  
       }
     }
   }
@@ -244,7 +192,14 @@ void Kiwibes::show_help(void)
 
 int Kiwibes::run(void)
 {
-  /* TODO */
+  /* create and start the scheduler */
+  KiwibesScheduler scheduler(std::string(home) + std::string("/jobs"));
+  scheduler.reload_jobs();
+  scheduler.start();
+
+  /* create and start the HTTP server */
+  KiwibesHTTP server(&scheduler);
+  server.run();
 
   return EXIT_ERROR_NO_ERROR;
 }

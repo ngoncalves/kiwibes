@@ -22,22 +22,35 @@
   Summary
   -------
 
-  See the respective header file for details.
+  This class implements the HTTP server for the Kiwibes Automation Server.
 */
-#include "kiwibes_job.h"
-#include "NanoLog/NanoLog.hpp"
+#ifndef __KIWIBES_HTTP_H__
+#define __KIWIBES_HTTP_H__
 
-KiwibesJob::KiwibesJob()
-{
+#include <memory>
+#include <string>
 
-}
+#include "kiwibes_scheduler.h"
 
-KiwibesJob::~KiwibesJob()
-{
-  
-}
+class KiwibesHTTP {
 
-void KiwibesJob::load(const std::string &filename)
-{
-  /* TODO */
-}
+public:
+  /** Class constructor
+
+    @scheduler  pointer to the scheduler object
+   */
+  KiwibesHTTP(KiwibesScheduler *scheduler);
+
+  /** Class destructor
+   */
+  ~KiwibesHTTP();
+
+  /* Run the server main loop in the current thread
+   */
+  void run();
+
+private:
+  KiwibesScheduler *scheduler;
+};
+
+#endif

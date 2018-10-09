@@ -22,22 +22,37 @@
   Summary
   -------
 
-  See the respective header file for details.
+  This class implements the scheduler for the Kiwibes Automation Server.
 */
-#include "kiwibes_job.h"
-#include "NanoLog/NanoLog.hpp"
+#ifndef __KIWIBES_SCHEDULER_H__
+#define __KIWIBES_SCHEDULER_H__
 
-KiwibesJob::KiwibesJob()
-{
+#include <memory>
+#include <string>
 
-}
+class KiwibesScheduler {
 
-KiwibesJob::~KiwibesJob()
-{
-  
-}
+public:
+  /** Class constructor
 
-void KiwibesJob::load(const std::string &filename)
-{
-  /* TODO */
-}
+    @jobs_folder  contains the name of the jobs folder
+   */
+  KiwibesScheduler(const std::string &jobs_folder);
+
+  /** Class destructor
+   */
+  ~KiwibesScheduler();
+
+  /* Reload Jobs
+   */
+  void reload_jobs(void);
+
+  /* Run the scheduler main loop in a separate thread
+   */
+  void start();
+
+private:
+  std::unique_ptr<std::string> folder;    /* folder on disk containing the job descriptions */
+};
+
+#endif

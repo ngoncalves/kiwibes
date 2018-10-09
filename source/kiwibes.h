@@ -27,9 +27,6 @@
 #ifndef __KIWIBES_H__
 #define __KIWIBES_H__
 
-#include "kiwibes_job.h"
-#include <vector>
-
 class Kiwibes {
 
 public:
@@ -82,19 +79,12 @@ private:
    */
   void parse_cmd_line(int argc, char **argv);
 
-  /** Load job descriptions
-   */
-  void load_jobs(void);
-
 private:
   /* command line options */
   const char   *home;           /* the server home folder */
   unsigned int logMaxSize;      /* maximum size of the log, in bytes */
   unsigned int logLevel;        /* logging level */
   unsigned int port;            /* server listening port */
-
-  /* jobs */
-  std::vector<KiwibesJob *> jobs;
 };
 
 #endif

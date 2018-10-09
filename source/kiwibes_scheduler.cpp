@@ -24,20 +24,25 @@
 
   See the respective header file for details.
 */
-#include "kiwibes_job.h"
+#include "kiwibes_scheduler.h"
 #include "NanoLog/NanoLog.hpp"
 
-KiwibesJob::KiwibesJob()
+KiwibesScheduler::KiwibesScheduler(const std::string &jobs_folder)
 {
-
+  folder.reset(new std::string(jobs_folder));
 }
 
-KiwibesJob::~KiwibesJob()
+KiwibesScheduler::~KiwibesScheduler()
 {
   
 }
 
-void KiwibesJob::load(const std::string &filename)
+void KiwibesScheduler::reload_jobs(void)
+{
+  /* TODO */
+}
+
+void KiwibesScheduler::start(void)
 {
   /* TODO */
 }

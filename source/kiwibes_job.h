@@ -22,13 +22,13 @@
   Summary
   -------
 
-  This class implements the automation jobs.
+  This class implements the individual jobs for the Kiwibes Automation Server.
 */
 #ifndef __KIWIBES_JOB_H__
 #define __KIWIBES_JOB_H__
 
-#include <string>
 #include <memory>
+#include <string>
 
 class KiwibesJob {
 
@@ -41,37 +41,11 @@ public:
    */
   ~KiwibesJob();
 
-  /** Load the job description from file
+  /* Load job
 
-    @param fname  full path to the file name
-    @returns true if successfull, false otherwise
-
-    The file is assumed to have the following info, one per line:
-    name: <string>
-    schedule: <string>
-    executable: <string>
-    max runtime: <unsigned integer>
-    ---
-    [optional program script]
-
-    where:
-      name          is the job name, must fit in a single line
-      schedule      (optional) is a cron-like expression for executing the job
-      max_runtime   is the maximum allowed runtime for the job, in seconds
-      executable    full path to the program to run
-
-    The order in which the key-value pairs appear is not relevant.
-    After these arguments, an optional script can be given.
-    All lines begining with '#' are ignored. 
-   */ 
-  bool load(const char *fname);
-
-private:
-  std::unique_ptr<std::string> name;        /* name of the job */
-  std::unique_ptr<std::string> schedule;    /* cron like schedule for executing the job */
-  std::unique_ptr<std::string> executable;  /* full path to the program to run */
-  std::unique_ptr<std::string> fname;       /* full path to the file with te job description */
-  unsigned int maxRuntime;                  /* maximum runtime allowed for the job, in seconds */  
+    @filename   full path to the filename containing the job description
+   */
+  void load(const std::string &filename);
 };
 
 #endif

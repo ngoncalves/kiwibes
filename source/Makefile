@@ -44,14 +44,17 @@ OBJECTS := $(patsubst $(SOURCE)/%.cpp,$(BUILD)/%.o,$(SOURCES))
 # Target
 #----------------------------------------------------------------------------
 
-all: $(OBJECTS) NanoLog
+all: $(OBJECTS) NanoLog CCronExpr
 	@echo '============================================='
 	@echo 'Building the Kiwibes Automation Server       '
 	@echo '============================================='
-	$(CC) $(LIBS) -o $(BIN) $(OBJECTS) $(BUILD)/NanoLog.o 
+	$(CC) $(LIBS) -o $(BIN) $(BUILD)/NanoLog.o $(BUILD)/ccronexpr.o $(OBJECTS) 
 
 NanoLog:
 	$(CC) $(CFLAGS) -c -o $(BUILD)/NanoLog.o ../3rd_party/NanoLog/NanoLog.cpp
+
+CCronExpr:
+	$(CC) $(CFLAGS) -c -o $(BUILD)/ccronexpr.o ../3rd_party/ccronexpr/ccronexpr.c
 
 $(BUILD)/%.o: $(SOURCE)/%.cpp
 	$(CC) $(CFLAGS) -c -o $@ $<

@@ -24,20 +24,20 @@
 
   See the respective header file for details.
 */
-#include "kiwibes_job.h"
+#include "kiwibes_http.h"
 #include "NanoLog/NanoLog.hpp"
 
-KiwibesJob::KiwibesJob()
+KiwibesHTTP::KiwibesHTTP(KiwibesScheduler *scheduler)
 {
-
+  this->scheduler = scheduler;
 }
 
-KiwibesJob::~KiwibesJob()
+KiwibesHTTP::~KiwibesHTTP()
 {
   
 }
 
-void KiwibesJob::load(const std::string &filename)
+void KiwibesHTTP::run(void)
 {
   /* TODO */
 }
