@@ -27,6 +27,9 @@
 #ifndef __KIWIBES_H__
 #define __KIWIBES_H__
 
+#include <memory>
+#include "kiwibes_database.h"
+
 class Kiwibes {
 
 public:
@@ -43,8 +46,8 @@ public:
     @param argc   number of command line input arguments
     @param argv   array of command line input arguments
 
-    This function parses the command line arguments, sets up the
-    home folder, starts the logger and loads the jobs descriptions.
+    This function parses the command line arguments, starts
+    the logger and loads the jobs descriptions.
 
     In case of error, it forces the application to exit.
   */
@@ -52,7 +55,7 @@ public:
 
   /** Run server main loop
 
-    This method runs the server main loop until it is either
+    This method runs the HTTP server main loop until it is either
     stopped by the user or CTRL-C is received.
 
     @returns 0 if successfull, non-null value otherwise
@@ -64,8 +67,17 @@ private:
    */
   void show_help(void);
 
-  /** Setup the home folder
+  /** Setup the home folder and start the logging system
 
+    It creates the home folder:
+      $HOME$/.kiwibes       if running in Linux
+      $APPDATA$/kiwibes     if running in Windows
+
+    where $HOME$ is the user home folder in Linux and
+    $APPDATA$ is the user AppData folder in Windows.
+
+    The Kiwibes server activity logs are written in the
+    application home folder.
     In case of faillure, this method forces the application to exit.
    */
   void setup_home(void);
@@ -79,12 +91,15 @@ private:
    */
   void parse_cmd_line(int argc, char **argv);
 
+  /** Load jobs from file
+
+    In case of faillure, this method forces the application to exit.
+   */
+  void load_jobs(void);
+
 private:
-  /* command line options */
-  const char   *home;           /* the server home folder */
-  unsigned int logMaxSize;      /* maximum size of the log, in bytes */
-  unsigned int logLevel;        /* logging level */
-  unsigned int port;            /* server listening port */
+  std::unique_ptr<KiwibesDatabase> database;  /* contains all information about jobs and the server */
+  std::unique_ptr<std::string>     home;      /* the home folder */
 };
 
 #endif

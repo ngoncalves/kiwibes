@@ -25,55 +25,56 @@
   See the respective header file for details.
 */
 #include "kiwibes.h"
-#include "kiwibes_scheduler.h"
-#include "kiwibes_http.h"
 
 #include <cstdlib>
 #include <cstring>
 #include <string>
 #include <iostream>
+#include <dirent.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
-#include <cerrno>
+
+#if defined(__linux__)
+  #include <unistd.h>
+  #include <pwd.h>
+#else
+  #error "Only Linux is currently supported"
+#endif
 
 #include "NanoLog/NanoLog.hpp"
 
 /*--------- Exit Error Conditions -------------------------------- */
-#define EXIT_ERROR_NO_ERROR            0  /* failed to load the jobs descriptions */
-#define EXIT_ERROR_FAIL_JOB_LOAD       1  /* failed to load the jobs descriptions */
-#define EXIT_ERROR_FAIL_CMD_LINE_PARSE 2  /* failed to parse the command line */
-#define EXIT_ERROR_FAIL_HOME_SETUP     3  /* failed to setup the home folder */
+#define EXIT_ERROR_NO_ERROR             0   /* failed to load the jobs descriptions */
+#define EXIT_ERROR_FAIL_JOB_LOAD        1   /* failed to load the jobs descriptions */
+#define EXIT_ERROR_FAIL_CMD_LINE_PARSE  2   /* failed to parse the command line */
+#define EXIT_ERROR_FAIL_HOME_SETUP      3   /* failed to setup the home folder */
+#define EXIT_ERROR_FAIL_LOAD_DATABASE   4   /* failed to load the database */ 
 
+#define KWB_OPT_LOG_LEVEL 0
+#define KWB_OPT_LOG_SIZE  1
+#define KWB_OPT_HTTP_PORT 2
 
 typedef struct{
   const char *option;
   const char *description;
-  unsigned int *value;
+  unsigned int value;
 } OPTIONS_T;
 
-static OPTIONS_T kiwibes_options[] = {
-  { "-l","Log level. Defaults to 0 (critical messages only)",NULL},
-  { "-s","Maximum size of the log, in MB. Defaults to 1 MB",NULL},
-  { "-p","HTTP server listening port. Defaults to 4242",NULL},
+static OPTIONS_T cmd_line[] = {
+  { "-l","Log level. Defaults to 0 (critical messages only)",0},
+  { "-s","Maximum size of the log, in MB. Defaults to 1 MB",1},
+  { "-p","HTTP server listening port. Defaults to 4242",4242},
 };
 
 Kiwibes::Kiwibes()
 {
-  /* set the default values for the options */
-  home       = NULL; 
-  logMaxSize = 1; 
-  logLevel   = 0;  
-  port       = 4242;
-
-  kiwibes_options[0].value = &logLevel;
-  kiwibes_options[1].value = &logMaxSize;
-  kiwibes_options[2].value = &port;
+  home.reset(nullptr);
 }
 
 Kiwibes::~Kiwibes()
 {
-  
+
 }
 
 void Kiwibes::init(int argc,char **argv)
@@ -83,27 +84,11 @@ void Kiwibes::init(int argc,char **argv)
   /* parse the command line arguments */
   parse_cmd_line(argc,argv);
 
-  /* setup the home folder */
+  /* setup the home folder and start logging */
   setup_home();
 
-  /* start logging */
-  nanolog::initialize(nanolog::GuaranteedLogger(),
-                      home + std::string("/logs/"),
-                      "kiwibes.log",
-                      logMaxSize);  
-   
-  if(0 == logLevel)
-  {
-    nanolog::set_log_level(nanolog::LogLevel::CRIT);
-  }
-  else if(1 == logLevel)
-  {
-    nanolog::set_log_level(nanolog::LogLevel::WARN);  
-  }
-  else
-  {
-    nanolog::set_log_level(nanolog::LogLevel::INFO);    
-  }
+  /* load the saved jobs */
+  load_jobs();
 
   /* initialization is complete, when reaching here */
   std::cout << "[INFO] the Kiwibes server is initialized" << std::endl;
@@ -112,94 +97,112 @@ void Kiwibes::init(int argc,char **argv)
 
 void Kiwibes::parse_cmd_line(int argc,char **argv)  
 {
-  if(2 > argc)
+  for(int a = 1; a < argc; a++)
   {
-    show_help();
-    exit(EXIT_ERROR_FAIL_CMD_LINE_PARSE);
-  }
-  else
-  {
-    home = argv[1];
-
-    for(int a = 2; a < argc; a++)
-    {
-      bool found = false;
+    bool found = false;
       
-      for(unsigned int opt = 0; opt < sizeof(kiwibes_options)/sizeof(OPTIONS_T); opt++)
+    for(unsigned int opt = 0; opt < sizeof(cmd_line)/sizeof(OPTIONS_T); opt++)
+    {
+      if((0 == strcmp(cmd_line[opt].option,argv[a])) && (a + 1) < argc) 
       {
-        if((0 == strcmp(kiwibes_options[opt].option,argv[a])) && (a + 1) < argc) 
-        {
-          a++;
-          *(kiwibes_options[opt].value) = strtol(argv[a],NULL,10);
-          found = true;
-          break;  
-        }
+        a++;
+        cmd_line[opt].value = strtol(argv[a],NULL,10);
+        found = true;
+        break;  
       }
+    }
 
-      if(!found)
-      {
-        show_help();
-        exit(EXIT_ERROR_FAIL_CMD_LINE_PARSE);
-      }
+    if(!found)
+    {
+      show_help();
+      exit(EXIT_ERROR_FAIL_CMD_LINE_PARSE);
     }
   }
 }
 
 void Kiwibes::setup_home(void)
 {
-  std::string folders[] = {
-    std::string(home),
-    std::string(home) + std::string("/jobs"),
-    std::string(home) + std::string("/logs"),
-  };
-
-  for(std::string folder : folders)
+  /* create the home folder, if it does not exist */
+#if defined(__linux__)
+  const char *user_home = getenv("HOME");
+  if(NULL == user_home)
   {
-    struct stat path;
+    home.reset(new std::string(std::string(getpwuid(getuid())->pw_dir) + std::string("/.kiwibes/")));
+  }
+  else
+  {
+    home.reset(new std::string(std::string(user_home) + std::string("/.kiwibes/")));
+  }
+#endif
+  
+  struct stat path;
     
-    if(0 != stat(folder.c_str(),&path))
+  if(0 != stat(home->c_str(),&path))
+  {
+    /* folder does not exist, create it with the permissions:
+      - read, write and execute by the owner
+      - read and execute by the group
+      - read and execute by others 
+    */
+    if(0 != mkdir(home->c_str(),S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH))
     {
-      /* folder does not exist, create it with the permissions:
-          - read, write and execute by the owner
-          - read and execute by the group
-          - read and execute by others 
-        */
-      if(0 != mkdir(folder.c_str(),S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH))
-      {
-        std::cout << "[ERROR] failed to create folder: " << folder << std::endl;
-        exit(EXIT_ERROR_FAIL_HOME_SETUP);
-      }
-      else
-      {
-        std::cout << "[INFO] created folder: " << folder << std::endl;  
-      }
+      std::cout << "[ERROR] failed to create folder: " << *home << std::endl;
+      exit(EXIT_ERROR_FAIL_HOME_SETUP);
     }
+    else
+    {
+      std::cout << "[INFO] created folder: " << *home << std::endl;  
+    }
+  }
+
+  /* start logging */
+  nanolog::initialize(nanolog::GuaranteedLogger(),*home,"kiwibes.log",cmd_line[KWB_OPT_LOG_SIZE].value);  
+   
+  if(0 == cmd_line[KWB_OPT_LOG_LEVEL].value)
+  {
+    nanolog::set_log_level(nanolog::LogLevel::CRIT);
+  }
+  else if(1 == cmd_line[KWB_OPT_LOG_LEVEL].value)
+  {
+    nanolog::set_log_level(nanolog::LogLevel::WARN);  
+  }
+  else
+  {
+    nanolog::set_log_level(nanolog::LogLevel::INFO);    
   }
 }
 
 void Kiwibes::show_help(void)
 {
-  std::cout << "Usage: kiwibes folder [OPTIONS]" << std::endl << std::endl;
-  std::cout << "The first argument *must* be the full path to the Kiwibes folder." << std::endl;  
-  std::cout << "The others are optional and set different working parameters:" << std::endl;
+  std::cout << "Usage: kiwibes [OPTIONS]" << std::endl << std::endl;
+  std::cout << "All arguments are optional and set different working parameters:" << std::endl;
   
-  for(unsigned int opt = 0; opt < sizeof(kiwibes_options)/sizeof(OPTIONS_T); opt++)
+  for(unsigned int opt = 0; opt < sizeof(cmd_line)/sizeof(OPTIONS_T); opt++)
   {
-    std::cout << "  " << kiwibes_options[opt].option << " UINT\t" << kiwibes_options[opt].description << std::endl;
+    std::cout << "  " << cmd_line[opt].option << " UINT\t" << cmd_line[opt].description << std::endl;
   } 
   std::cout << std::endl;
 }
 
+void Kiwibes::load_jobs(void)
+{
+  /* load the database, then the jobs */
+  database.reset(new KiwibesDatabase(home->c_str()));
+
+  if(true == database->load())
+  {
+
+  }
+  else
+  {
+    LOG_CRIT << "failed to load the database, exiting";
+    exit(EXIT_ERROR_FAIL_LOAD_DATABASE);
+  }
+}
+
 int Kiwibes::run(void)
 {
-  /* create and start the scheduler */
-  KiwibesScheduler scheduler(std::string(home) + std::string("/jobs"));
-  scheduler.reload_jobs();
-  scheduler.start();
-
-  /* create and start the HTTP server */
-  KiwibesHTTP server(&scheduler);
-  server.run();
+  /* TODO */
 
   return EXIT_ERROR_NO_ERROR;
 }
