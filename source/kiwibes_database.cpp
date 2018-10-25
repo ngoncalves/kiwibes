@@ -26,20 +26,13 @@
 */
 #include <fstream>
 #include <iomanip>
-#include <iostream>
-
 #include "kiwibes_database.h"
-
 #include "NanoLog/NanoLog.hpp"
 
-KiwibesDatabase::KiwibesDatabase(const char *home_folder)
+KiwibesDatabase::KiwibesDatabase()
 {
-  db_fname.reset(new std::string(*(home_folder) + 
-                                 std::string("/") +
-                                 std::string("kiwibes.json")
-                                )
-                );
-  db.reset(nullptr);  
+  dbhome.reset(nullptr);
+  db.reset(nullptr);
 }
 
 KiwibesDatabase::~KiwibesDatabase()
@@ -47,49 +40,90 @@ KiwibesDatabase::~KiwibesDatabase()
 
 }
 
-bool KiwibesDatabase::load(void)
+bool KiwibesDatabase::load(const std::string &home)
 { 
+  std::lock_guard<std::mutex> lock(dblock);
+
+  dbhome.reset(new std::string(home));
   bool success = true;
 
-  /* create the 'database' and set the initial values */
-  db.reset(new nlohmann::json);
-  (*db)["save_counter"] = 0;
-  (*db)["jobs"] = nullptr;
+  /* clear the current database */
+  db.reset(new nlohmann::json());
+  (*db)["backup_counter"] = 0;
+  (*db)["jobs"]           = nullptr;
 
-  std::ifstream fname(*db_fname);
+  /* read the database file */
+  std::string dbfname = std::string(*dbhome + std::string("/kiwibes.json"));
+  std::ifstream dbfile(dbfname);
 
-  if(true == fname.is_open())
+  if(true == dbfile.is_open())
   {
     try
     {
-      fname >> *db;
+      /* load the database */
+      dbfile >> *db;
+
+      /* reset the state of each job, to be initially stopped */
+      for(auto &job : (*db)["jobs"])
+      {
+        job["state"] = "stopped";       
+      }
     }
     catch(nlohmann::detail::parse_error &e)
     {
-      LOG_CRIT << "failed to parse JSON file: " << *db_fname;
+      LOG_CRIT << "failed to parse JSON file: " << dbfname;
       LOG_CRIT << "JSON error: " << e.what();
       success = false; 
     }
   }
+
+  /* add and empty object */
+  (*db)["empty"] = nullptr;
 
   return success; 
 }
 
 bool KiwibesDatabase::save(void)
 {
-  bool success = true;
+  std::lock_guard<std::mutex> lock(dblock);
+
+  bool              success        = true;
+  unsigned int long backup_counter = (*db)["backup_counter"];  
+  std::string       dbfname        = std::string(*dbhome + std::string("/kiwibes.json"));
 
   /* backup the current file, if there is one */
-  if(0 != std::rename(db_fname->c_str(),(*db_fname + std::to_string((int)(*db)["save_counter"])).c_str()))
+  if(0 != std::rename(dbfname.c_str(),(dbfname + std::to_string(backup_counter)).c_str()))
   {
     LOG_CRIT << "failed to backup the database: ";
   }
   else
   {
-    std::ofstream fname(*db_fname);
-    fname << std::setw(4) << (*db) << std::endl;
-    (*db)["save_counter"] += 1;  
+    std::ofstream dbfile(dbfname);
+    dbfile << std::setw(4) << (*db) << std::endl;
+    (*db)["backup_counter"] += 1;  
   }
   
   return success; 
 } 
+
+const nlohmann::json & KiwibesDatabase::get_all_jobs(void)
+{
+  std::lock_guard<std::mutex> lock(dblock);
+
+  return (*db)["jobs"];  
+}
+
+const nlohmann::json & KiwibesDatabase::get_job(const std::string &name)
+{
+  std::lock_guard<std::mutex> lock(dblock);
+
+  for(auto &job : (*db)["jobs"])
+  {
+    if(0 == name.compare(job["name"]))
+    {
+      return job;
+    }
+  }
+
+  return (*db)["empty"];  
+}

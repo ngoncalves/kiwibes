@@ -29,6 +29,7 @@
 
 #include <memory>
 #include "kiwibes_database.h"
+#include "kiwibes_scheduler.h"
 
 class Kiwibes {
 
@@ -47,7 +48,8 @@ public:
     @param argv   array of command line input arguments
 
     This function parses the command line arguments, starts
-    the logger and loads the jobs descriptions.
+    the logger and loads the jobs descriptions. It then schedules
+    the jobs that must run periodically.
 
     In case of error, it forces the application to exit.
   */
@@ -91,15 +93,10 @@ private:
    */
   void parse_cmd_line(int argc, char **argv);
 
-  /** Load jobs from file
-
-    In case of faillure, this method forces the application to exit.
-   */
-  void load_jobs(void);
-
 private:
-  std::unique_ptr<KiwibesDatabase> database;  /* contains all information about jobs and the server */
-  std::unique_ptr<std::string>     home;      /* the home folder */
+  std::unique_ptr<KiwibesDatabase>  database;   /* contains all information about jobs and the server */
+  std::unique_ptr<KiwibesScheduler> scheduler;  /* schedules jobs to run */
+  std::unique_ptr<std::string>      home;       /* the home folder */
 };
 
 #endif

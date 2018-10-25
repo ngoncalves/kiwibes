@@ -69,12 +69,17 @@ static OPTIONS_T cmd_line[] = {
 
 Kiwibes::Kiwibes()
 {
-  home.reset(nullptr);
+  database.reset(new KiwibesDatabase);
+  scheduler.reset(new KiwibesScheduler);
+  home = nullptr;
 }
 
 Kiwibes::~Kiwibes()
 {
-
+  if(true == scheduler->is_thread_running())
+  {
+    scheduler->stop();
+  }
 }
 
 void Kiwibes::init(int argc,char **argv)
@@ -87,8 +92,29 @@ void Kiwibes::init(int argc,char **argv)
   /* setup the home folder and start logging */
   setup_home();
 
-  /* load the saved jobs */
-  load_jobs();
+  /* initialize the database and the scheduler */
+  LOG_INFO << "loading the jobs database";
+  if(false == database->load(*home))
+  {
+    LOG_CRIT << "failed to load the database, exiting";
+    exit(EXIT_ERROR_FAIL_LOAD_DATABASE);    
+  }
+
+  LOG_INFO << "starting the jobs scheduler";
+  scheduler->start(database.get());
+
+  /* schedule jobs that run periodically */
+  for(auto &job : database->get_all_jobs())
+  {
+    if(1 == job.count("schedule"))
+    {
+      scheduler->push(new KiwibesSchedulerEvent(SCHEDULE_JOB,
+                                                TIME_NOW,
+                                                new std::string(job["name"].get<std::string>())
+                                                )
+                      );  
+    }
+  }
 
   /* initialization is complete, when reaching here */
   std::cout << "[INFO] the Kiwibes server is initialized" << std::endl;
@@ -182,22 +208,6 @@ void Kiwibes::show_help(void)
     std::cout << "  " << cmd_line[opt].option << " UINT\t" << cmd_line[opt].description << std::endl;
   } 
   std::cout << std::endl;
-}
-
-void Kiwibes::load_jobs(void)
-{
-  /* load the database, then the jobs */
-  database.reset(new KiwibesDatabase(home->c_str()));
-
-  if(true == database->load())
-  {
-
-  }
-  else
-  {
-    LOG_CRIT << "failed to load the database, exiting";
-    exit(EXIT_ERROR_FAIL_LOAD_DATABASE);
-  }
 }
 
 int Kiwibes::run(void)

@@ -29,33 +29,32 @@
 #ifndef __KIWIBES_DATABASE_H__
 #define __KIWIBES_DATABASE_H__
 
-#include <memory>
 #include <mutex>
+#include <string>
+#include <map>
+#include <memory>
 #include "nlohmann/json.h"
 
 class KiwibesDatabase {
 
 public:
   /** Class constructor
-
-    @param home_folder  full path to the database folder
    */
-  KiwibesDatabase(const char *home_folder);
+  KiwibesDatabase();
 
-  /** Class constructor
-
-    @param home_folder  pointer to the home folder
+  /** Class destructor
    */
   ~KiwibesDatabase();
 
-  /** Load the database to memory
-
-    @return true if successfull, false otherwise
+  /** Load the job descriptions to memory
 
     The database is the JSON file "kiwibes.json" located in
     the home folder. 
+
+    @param home  full path to the folder containing the database
+    @return true if successfull, false otherwise
   */
-  bool load(void);
+  bool load(const std::string &home);
 
   /** Save the database to file
 
@@ -66,10 +65,21 @@ public:
   */ 
   bool save(void);
 
+  /** Return a JSON list with all jobs 
+   */
+  const nlohmann::json &get_all_jobs(void);
+
+  /** Return the JSON description of a job 
+
+    @param name   the name of the job
+    @return the JSON description of the job,  nullptr if the name was not found 
+   */
+  const nlohmann::json &get_job(const std::string &name);
+
 private:
-  std::unique_ptr<std::string>    db_fname;   /* full path to the database file */
-  std::unique_ptr<nlohmann::json> db;         /* the database */
-  std::mutex                      db_lock;    /* synchronize access to the database */
+  std::mutex                      dblock;   /* synchronize access to the database */
+  std::unique_ptr<std::string>    dbhome;   /* full path to the folder containing the database */
+  std::unique_ptr<nlohmann::json> db;       /* the database */
 };
 
 #endif
