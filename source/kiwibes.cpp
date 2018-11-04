@@ -75,8 +75,6 @@ Kiwibes::Kiwibes()
   manager.reset(new KiwibesJobsManager(database.get()));  
   scheduler.reset(new KiwibesScheduler(database.get(),manager.get()));
   home.reset(nullptr);
-
-  scheduler->start();
 }
 
 Kiwibes::~Kiwibes()
@@ -105,6 +103,8 @@ void Kiwibes::init(int argc,char **argv)
   }
 
   /* schedule jobs that run periodically */
+  scheduler->start();
+  
   LOG_INFO << "scheduling periodic jobs";
   
   for(auto &job : database->get_all_jobs())

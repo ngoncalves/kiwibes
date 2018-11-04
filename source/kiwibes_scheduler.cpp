@@ -102,7 +102,7 @@ void KiwibesScheduler::stop(void)
     
       std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
       
-      events.push(new KiwibesSchedulerEvent(EVENT_EXIT_SCHEDULER,now,nullptr));
+      events.push(new KiwibesSchedulerEvent(EVENT_EXIT_SCHEDULER,now,std::string("")));
     }
 
     LOG_INFO << "waiting for the scheduler thread to finish";
