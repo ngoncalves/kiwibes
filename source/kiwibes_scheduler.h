@@ -29,49 +29,58 @@
 #ifndef __KIWIBES_SCHEDULER_H__
 #define __KIWIBES_SCHEDULER_H__
 
-#include "nlohmann/json.h"
 #include "kiwibes_database.h"
+#include "kiwibes_jobs_manager.h"
 #include "kiwibes_scheduler_event.h"
 #include <queue>
 #include <memory>
 #include <thread>
+#include <map>
 
 class KiwibesScheduler {
 
 public:
   /** Class constructor
+
+    @param  database    pointer to the database object
+    @param  manager     pointer to the jobs manager
    */
-  KiwibesScheduler();
+  KiwibesScheduler(KiwibesDatabase *database, KiwibesJobsManager *manager);
 
   /** Class destructor
    */
   ~KiwibesScheduler();
 
   /** Start the scheduler thread
-
-    @param database   pointer to the database object
    */
-  void start(KiwibesDatabase *database);
+  void start(void);
 
   /** Stop the scheduler task 
    */
   void stop(void);
-
-  /** Return true if the scheduler thread is running
-   */
-  bool is_thread_running(void);
   
-  /** Push an event onto the event queue
+  /** Schedule a job to run periodically
 
-    @param event  the event to push
+    @param name   name of the job
+    @return true if successfull, false otherwise
    */
-  void push(const KiwibesSchedulerEvent *event);
+  bool schedule_job(const std::string &name);
+
+  /** Stop a job from running periodically.
+
+    @param name   name of the job
+
+    If the job is not scheduled to run, nothing is done.
+   */
+  void unschedule_job(const std::string &name);
 
 private:
-  bool                         is_running;                    /* set to true if the scheduler thread is running */
-  std::mutex                   qlock;                         /* synchronize access to the event queue */
-  std::unique_ptr<std::thread> scheduler;                     /* the scheduler thread */
-  std::priority_queue<const KiwibesSchedulerEvent *> events;  /* event queue */
+  KiwibesDatabase              *database;                 /* private pointer to the database */
+  KiwibesJobsManager           *manager;                  /* private pointer to the jobs manager */
+  bool                         is_running;                /* set to true if the scheduler thread is running */
+  std::mutex                   qlock;                     /* synchronize access to the event queue */
+  std::unique_ptr<std::thread> scheduler;                 /* the scheduler thread */
+  std::priority_queue<KiwibesSchedulerEvent *> events;    /* event queue */
 };
 
 #endif

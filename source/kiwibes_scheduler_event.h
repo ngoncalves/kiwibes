@@ -22,29 +22,20 @@
   Summary
   -------
 
-  This class represents an event of the scheduler.
+  This class represents an event of the jobs scheduler.
 */
 #ifndef __KIWIBES_SCHEDULER_EVENT_H__
 #define __KIWIBES_SCHEDULER_EVENT_H__
 
-#include <memory>
 #include <chrono>
-
-/** Syntatic sugar for a time instant 
- */
-typedef std::chrono::system_clock::time_point TimePoint_T;
-
-/** Special macro that returns the current time
- */
-#define TIME_NOW (new TimePoint_T(std::chrono::system_clock::now()))
+#include <memory>
 
 /** Type of events possible 
  */
 typedef enum { 
-  START_JOB,        /* start a job */
-  STOP_JOB,         /* stop a job */
-  EXIT_SCHEDULER,   /* exit from the scheduler thread */
-  SCHEDULE_JOB,     /* schedule the job with the given name */
+  EVENT_START_JOB,        /* start a job and re-schedule it again */
+  EVENT_STOP_JOB,         /* do not start the job and do not schedule it again */
+  EVENT_EXIT_SCHEDULER,   /* exit from the scheduler thread */
 } EventType_T;
 
 
@@ -57,7 +48,7 @@ public:
     @param t0       the instant when the event occurs
     @param payload  the event payload, can be nullptr
    */
-  KiwibesSchedulerEvent(EventType_T type, TimePoint_T *t0, std::string *payload);    
+  KiwibesSchedulerEvent(EventType_T type, std::time_t t0, const std::string &payload);    
   
   /** Class destructor
    */
@@ -73,9 +64,9 @@ public:
   bool operator<(const KiwibesSchedulerEvent &rhs);
 
 public:
- EventType_T                  type;      /* type of event */
- std::unique_ptr<TimePoint_T> t0;        /* instant in the future when the event occurs */   
- std::unique_ptr<std::string> payload;   /* name of the job */   
+ EventType_T type;                        /* type of event */
+ std::time_t t0;                          /* instant in the future when the event occurs */   
+ std::unique_ptr<std::string> job;        /* name of the job */   
 };
 
 #endif

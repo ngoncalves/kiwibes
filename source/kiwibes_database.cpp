@@ -27,7 +27,9 @@
 #include <fstream>
 #include <iomanip>
 #include "kiwibes_database.h"
+#include "kiwibes_cron_parser.h"
 #include "NanoLog/NanoLog.hpp"
+#include "ccronexpr/ccronexpr.h"
 
 KiwibesDatabase::KiwibesDatabase()
 {
@@ -44,8 +46,9 @@ bool KiwibesDatabase::load(const std::string &home)
 { 
   std::lock_guard<std::mutex> lock(dblock);
 
+  bool fail = false;
+
   dbhome.reset(new std::string(home));
-  bool success = true;
 
   /* clear the current database */
   db.reset(new nlohmann::json());
@@ -63,24 +66,78 @@ bool KiwibesDatabase::load(const std::string &home)
       /* load the database */
       dbfile >> *db;
 
-      /* reset the state of each job, to be initially stopped */
+      /* make sure that each job has:
+        - a name 
+        - a command 
+        - a maximum runtime in seconds        
+        - a state: running or stopped, initially at stopped
+        - average run time
+        - standard deviation for the run time     
+        - optionally a schedule
+      */
       for(auto &job : (*db)["jobs"])
       {
-        job["state"] = "stopped";       
+        /* the name, command and max-runtime fields are mandatory. And if the
+           schedule field is present, it must be a valid CRON expression
+         */
+        if(0 == job.count("name"))
+        {
+          LOG_CRIT << "found a job without field 'name'";
+          fail = true;
+          break;
+        }
+        else if(0 == job.count("command"))
+        {
+          LOG_CRIT << "job '" << job["name"].get<std::string>() << "' has no field 'command'";
+          fail = true;
+          break;
+        }
+        else if(0 == job.count("max-runtime"))
+        {
+          LOG_CRIT << "job '" << job["name"].get<std::string>() << "' has no field 'max-runtime'";
+          fail = true;
+          break;
+        }
+        else if(1 == job.count("schedule"))
+        {
+          /* verify that the CRON expression is valid */
+          KiwibesCronParser cron(job["schedule"].get<std::string>());
+
+          if(false == cron.is_valid())
+          {
+            LOG_CRIT << "job '" << job["name"].get<std::string>() << "' has an invalid schedule";
+            fail = true;
+            break;    
+          }
+        }
+
+        /* if the runtime statistics are not preset, create them */
+        if(0 == job["avg-runtime"])
+        {
+          job["avg-runtime"] = 0.0;
+        }
+
+        if(0 == job["stdev-runtime"])
+        {
+          job["stdev-runtime"] = 0.0;
+        }
+
+        /* reset the job state to 'stopped' */
+        job["state"] = "stopped";
       }
     }
     catch(nlohmann::detail::parse_error &e)
     {
       LOG_CRIT << "failed to parse JSON file: " << dbfname;
       LOG_CRIT << "JSON error: " << e.what();
-      success = false; 
+      fail = true; 
     }
   }
 
   /* add and empty object */
   (*db)["empty"] = nullptr;
 
-  return success; 
+  return !fail; 
 }
 
 bool KiwibesDatabase::save(void)
@@ -106,14 +163,14 @@ bool KiwibesDatabase::save(void)
   return success; 
 } 
 
-const nlohmann::json & KiwibesDatabase::get_all_jobs(void)
+const nlohmann::json &KiwibesDatabase::get_all_jobs(void)
 {
   std::lock_guard<std::mutex> lock(dblock);
 
   return (*db)["jobs"];  
 }
 
-const nlohmann::json & KiwibesDatabase::get_job(const std::string &name)
+const nlohmann::json &KiwibesDatabase::get_job(const std::string &name)
 {
   std::lock_guard<std::mutex> lock(dblock);
 

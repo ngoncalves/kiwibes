@@ -30,31 +30,28 @@
 #include <cstring>
 #include <string>
 #include <iostream>
-#include <dirent.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <dirent.h>
+
+#include "NanoLog/NanoLog.hpp"
 
 #if defined(__linux__)
   #include <unistd.h>
   #include <pwd.h>
+  #include <sys/types.h>
+  #include <sys/stat.h>
+  #include <dirent.h>
 #else
-  #error "Only Linux is currently supported"
+  #error "OS not supported"
 #endif
 
-#include "NanoLog/NanoLog.hpp"
-
-/*--------- Exit Error Conditions -------------------------------- */
-#define EXIT_ERROR_NO_ERROR             0   /* failed to load the jobs descriptions */
-#define EXIT_ERROR_FAIL_JOB_LOAD        1   /* failed to load the jobs descriptions */
-#define EXIT_ERROR_FAIL_CMD_LINE_PARSE  2   /* failed to parse the command line */
-#define EXIT_ERROR_FAIL_HOME_SETUP      3   /* failed to setup the home folder */
-#define EXIT_ERROR_FAIL_LOAD_DATABASE   4   /* failed to load the database */ 
-
+/*------------------------- Private Data Definitions ---------------------*/
+/** Logging levels
+ */
 #define KWB_OPT_LOG_LEVEL 0
 #define KWB_OPT_LOG_SIZE  1
 #define KWB_OPT_HTTP_PORT 2
 
+/** Expected command line options 
+ */
 typedef struct{
   const char *option;
   const char *description;
@@ -69,17 +66,24 @@ static OPTIONS_T cmd_line[] = {
 
 Kiwibes::Kiwibes()
 {
+  /* create:
+    - the database interface object
+    - the scheduler for periodic jobs
+    - the jobs manager
+   */
   database.reset(new KiwibesDatabase);
-  scheduler.reset(new KiwibesScheduler);
-  home = nullptr;
+  manager.reset(new KiwibesJobsManager(database.get()));  
+  scheduler.reset(new KiwibesScheduler(database.get(),manager.get()));
+  home.reset(nullptr);
+
+  scheduler->start();
 }
 
 Kiwibes::~Kiwibes()
 {
-  if(true == scheduler->is_thread_running())
-  {
-    scheduler->stop();
-  }
+  /* stop the jobs scheduler, as well as any job still running */
+  scheduler->stop();
+  manager->stop_all();
 }
 
 void Kiwibes::init(int argc,char **argv)
@@ -94,25 +98,20 @@ void Kiwibes::init(int argc,char **argv)
 
   /* initialize the database and the scheduler */
   LOG_INFO << "loading the jobs database";
-  if(false == database->load(*home))
+  if(false == database->load(*(home.get())))
   {
     LOG_CRIT << "failed to load the database, exiting";
     exit(EXIT_ERROR_FAIL_LOAD_DATABASE);    
   }
 
-  LOG_INFO << "starting the jobs scheduler";
-  scheduler->start(database.get());
-
   /* schedule jobs that run periodically */
+  LOG_INFO << "scheduling periodic jobs";
+  
   for(auto &job : database->get_all_jobs())
   {
     if(1 == job.count("schedule"))
     {
-      scheduler->push(new KiwibesSchedulerEvent(SCHEDULE_JOB,
-                                                TIME_NOW,
-                                                new std::string(job["name"].get<std::string>())
-                                                )
-                      );  
+      scheduler->schedule_job(job["name"].get<std::string>());  
     }
   }
 

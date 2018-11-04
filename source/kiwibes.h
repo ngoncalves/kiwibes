@@ -30,6 +30,17 @@
 #include <memory>
 #include "kiwibes_database.h"
 #include "kiwibes_scheduler.h"
+#include "kiwibes_jobs_manager.h"
+
+/*--------- Exit Error Conditions -------------------------------- */
+#define EXIT_ERROR_NO_ERROR             0   /* failed to load the jobs descriptions */
+#define EXIT_ERROR_FAIL_JOB_LOAD        1   /* failed to load the jobs descriptions */
+#define EXIT_ERROR_FAIL_CMD_LINE_PARSE  2   /* failed to parse the command line */
+#define EXIT_ERROR_FAIL_HOME_SETUP      3   /* failed to setup the home folder */
+#define EXIT_ERROR_FAIL_LOAD_DATABASE   4   /* failed to load the database */ 
+#define EXIT_ERROR_FAIL_INTERRUPTED     5   /* caught CTRL-C */ 
+
+/*--------- Kiwibes Server Class -------------------------------- */
 
 class Kiwibes {
 
@@ -78,8 +89,7 @@ private:
     where $HOME$ is the user home folder in Linux and
     $APPDATA$ is the user AppData folder in Windows.
 
-    The Kiwibes server activity logs are written in the
-    application home folder.
+    The Kiwibes server activity logs are written in the application home folder.
     In case of faillure, this method forces the application to exit.
    */
   void setup_home(void);
@@ -94,9 +104,10 @@ private:
   void parse_cmd_line(int argc, char **argv);
 
 private:
-  std::unique_ptr<KiwibesDatabase>  database;   /* contains all information about jobs and the server */
-  std::unique_ptr<KiwibesScheduler> scheduler;  /* schedules jobs to run */
-  std::unique_ptr<std::string>      home;       /* the home folder */
+  std::unique_ptr<KiwibesDatabase>    database;   /* contains all information about jobs and the server */
+  std::unique_ptr<KiwibesScheduler>   scheduler;  /* schedules jobs to run */
+  std::unique_ptr<KiwibesJobsManager> manager;    /* job management */
+  std::unique_ptr<std::string>        home;       /* the home folder */
 };
 
 #endif

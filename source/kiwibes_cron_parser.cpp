@@ -24,22 +24,47 @@
 
   See the respective header file for details.
 */
-#include "kiwibes_scheduler_event.h"
+#include "kiwibes_cron_parser.h"
 #include "NanoLog/NanoLog.hpp"
+#include <chrono>
 
-KiwibesSchedulerEvent::KiwibesSchedulerEvent(EventType_T type, std::time_t t0, const std::string &payload)
+KiwibesCronParser::KiwibesCronParser(const std::string &expression)
 {
-  this->type = type;
-  this->t0   = t0;
-  this->job.reset(new std::string(payload));
+  cron.reset(new cron_expr);
+  const char *error;
+
+  cron_parse_expr(expression.c_str(),cron.get(),&error);
+          
+  if(NULL != error)
+  {
+    LOG_CRIT << "invalid Cron expression: '" << expression << "', error: " << error;
+    valid = false;
+  }
+  else
+  {
+    valid = true;
+  }
 }
 
-KiwibesSchedulerEvent::~KiwibesSchedulerEvent()
+KiwibesCronParser::~KiwibesCronParser()
 {
-  /* nothing to do */
+  /* nothing to do */ 
 }
 
-bool KiwibesSchedulerEvent::operator<(const KiwibesSchedulerEvent &rhs)
+bool KiwibesCronParser::is_valid(void)
 {
-  return (t0 <= rhs.t0); 
+  return valid;
+}
+
+std::time_t KiwibesCronParser::next(void)
+{
+  if(true == valid)
+  {
+    std::time_t now  = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    return cron_next(cron.get(),now);
+  }
+  else
+  {
+    return 0;
+  }
 }

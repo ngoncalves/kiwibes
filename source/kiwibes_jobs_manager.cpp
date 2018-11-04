@@ -22,27 +22,40 @@
   Summary
   -------
 
-  This module implements the thread on which scheduling events
-  are handled.
+  See the respective header file for details.
 */
-#ifndef __KIWIBES_SCHEDULER_THREAD_H__
-#define __KIWIBES_SCHEDULER_THEAD_H__
+#include "kiwibes_jobs_manager.h"
+#include "NanoLog/NanoLog.hpp"
 
-#include "kiwibes_database.h"
-#include "kiwibes_scheduler_event.h"
-#include <queue>
-#include <mutex>
+KiwibesJobsManager::KiwibesJobsManager(KiwibesDatabase *database)
+{
+  this->database = database;
+}
 
-/** Scheduler Thread
+KiwibesJobsManager::~KiwibesJobsManager()
+{
 
-  This function implements the scheduler thread, which manages
-  the execution of the jobs. The function will run in a non-stop
-  loop until the exit event is received
+}
 
-  @param database   pointer to the database object 
-  @param events     events queue
-  @param qlock      the events queue lock 
- */
-void scheduler_thread_main(KiwibesDatabase *database, std::priority_queue<const KiwibesSchedulerEvent *> *events, std::mutex *qlock);
+bool KiwibesJobsManager::start_job(const std::string &name)
+{
+  bool fail = false;
 
-#endif
+  /* TODO */
+
+  return !fail;
+}
+  
+bool KiwibesJobsManager::stop_job(const std::string &name)
+{
+  bool fail = false;
+
+  /* TODO */
+  
+  return !fail;
+}
+
+void KiwibesJobsManager::stop_all(void)
+{
+  /* TODO */
+}
