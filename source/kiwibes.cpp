@@ -28,6 +28,7 @@
 
 #include <string>
 #include <iostream>
+#include <set>
 
 #include "NanoLog/NanoLog.hpp"
 
@@ -40,6 +41,13 @@
 #endif
 
 /*------------------------- Private Data Definitions ---------------------*/
+/** REST Error codes
+ */
+#define ERROR_REST_NONE             (0)
+#define ERROR_REST_JOB_NAME_UNKNOWN (1)
+#define ERROR_REST_JOB_NOT_STARTED  (2)
+#define ERROR_REST_JOB_NOT_STOPPED  (3)
+
 /** Logging levels
  */
 #define KWB_OPT_LOG_LEVEL 0
@@ -235,14 +243,43 @@ void Kiwibes::show_help(void)
 
 void Kiwibes::post_start_job(const httplib::Request& req, httplib::Response& res)
 {
-  /* TODO */
+  LOG_INFO << "REST - post_start_job, args: " << req.matches[1];
+
+  nlohmann::json error;
+
+  if(true == manager->start_job(req.matches[1]))
+  {
+    error["code"]   = ERROR_REST_NONE;
+    error["reason"] = "job started";
+  }
+  else
+  {
+    error["code"]   = ERROR_REST_JOB_NOT_STARTED;
+    error["reason"] = "could not start job";
+  }
+  
+  res.set_content(error.dump(),"application/json");  
 }
 
 void Kiwibes::post_stop_job(const httplib::Request& req, httplib::Response& res)
 {
-  /* TODO */
-}
+  LOG_INFO << "REST - post_stop_job, args: " << req.matches[1];
 
+  nlohmann::json error;
+
+  if(true == manager->stop_job(req.matches[1]))
+  {
+    error["code"]   = ERROR_REST_NONE;
+    error["reason"] = "job stopped";
+  }
+  else
+  {
+    error["code"]   = ERROR_REST_JOB_NOT_STOPPED;
+    error["reason"] = "could not stop job";
+  }
+  
+  res.set_content(error.dump(),"application/json");  
+}
 void Kiwibes::post_create_job(const httplib::Request& req, httplib::Response& res)
 {
   /* TODO */
@@ -260,10 +297,35 @@ void Kiwibes::post_delete_job(const httplib::Request& req, httplib::Response& re
 
 void Kiwibes::get_get_job(const httplib::Request& req, httplib::Response& res)
 {
-  /* TODO */
+  LOG_INFO << "REST - get_get_job, args: " << req.matches[1];
+
+  nlohmann::json job = database->get_job(req.matches[1]);
+  if(nullptr == job)
+  {
+    nlohmann::json error;
+    
+    error["code"]   = ERROR_REST_JOB_NAME_UNKNOWN;
+    error["reason"] = "unknown job name";
+
+    res.set_content(error.dump(),"application/json");  
+  }
+  else
+  {
+    res.set_content(job.dump(),"application/json");  
+  }
 }
 
 void Kiwibes::get_list_jobs(const httplib::Request& req, httplib::Response& res)
 {
-  /* TODO */
+  std::set<std::string> names;
+  
+  LOG_INFO << "REST - get_list_jobs";
+
+  for(auto job : database->get_all_jobs())
+  {
+    names.insert(job["name"].get<std::string>());
+  }
+
+  nlohmann::json jobs(names); 
+  res.set_content(jobs.dump(),"application/json");    
 }
