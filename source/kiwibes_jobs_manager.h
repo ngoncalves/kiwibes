@@ -29,6 +29,27 @@
 #define __KIWIBES_JOBS_MANAGER_H__
 
 #include "kiwibes_database.h"
+#include <map>
+#include <string>
+#include <mutex>
+#include <thread>
+#include <chrono>
+
+#if defined(__linux__)
+  #include <sys/types.h>
+  #include <unistd.h>
+
+  typedef pid_t T_PROCESS_HANDLER;
+#else
+  #error "OS not supported"
+#endif 
+
+/** Definition of a job 
+ */
+typedef struct{
+  T_PROCESS_HANDLER handle;     /* process handler */
+  std::time_t       started;    /* when the process started */
+} T_JOB;
 
 class KiwibesJobsManager {
 
@@ -59,10 +80,19 @@ public:
 
   /** Stop all of the currently running jobs
    */
-  void stop_all(void);
+  void stop_all_jobs(void);
 
 private:
-    KiwibesDatabase *database;    /* private pointer to the database */
-};
+  /** Launch the job in a separate process
+   */
+  T_JOB *launch_job(const nlohmann::json &description);
+
+private:
+  KiwibesDatabase                 *database;    /* private pointer to the database */
+  std::map<std::string, T_JOB *>  active_jobs;  /* active jobs */
+  std::mutex                      jobs_lock;    /* exclusive access to the list of running jobs */
+  std::unique_ptr<std::thread>    watcher;      /* thread that waits for child processes to exit */
+  bool                            watcherExit;  /* flag to indicate when the watcher thread should exit */
+};  
 
 #endif

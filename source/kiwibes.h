@@ -22,27 +22,29 @@
   Summary
   -------
 
-  This class implements the Kiwibes Automation Server.
+  This class implements the Kiwibes Automation Server,
+  with its REST interface
 */
 #ifndef __KIWIBES_H__
 #define __KIWIBES_H__
 
 #include <memory>
+#include "cpp-httplib/httplib.h"
 #include "kiwibes_database.h"
 #include "kiwibes_scheduler.h"
 #include "kiwibes_jobs_manager.h"
 
 /*--------- Exit Error Conditions -------------------------------- */
-#define EXIT_ERROR_NO_ERROR             0   /* failed to load the jobs descriptions */
-#define EXIT_ERROR_FAIL_JOB_LOAD        1   /* failed to load the jobs descriptions */
-#define EXIT_ERROR_FAIL_CMD_LINE_PARSE  2   /* failed to parse the command line */
-#define EXIT_ERROR_FAIL_HOME_SETUP      3   /* failed to setup the home folder */
-#define EXIT_ERROR_FAIL_LOAD_DATABASE   4   /* failed to load the database */ 
-#define EXIT_ERROR_FAIL_INTERRUPTED     5   /* caught CTRL-C */ 
+#define ERROR_NO_ERROR             0   /* failed to load the jobs descriptions */
+#define ERROR_FAIL_JOB_LOAD        1   /* failed to load the jobs descriptions */
+#define ERROR_FAIL_CMD_LINE_PARSE  2   /* failed to parse the command line */
+#define ERROR_FAIL_HOME_SETUP      3   /* failed to setup the home folder */
+#define ERROR_FAIL_LOAD_DATABASE   4   /* failed to load the database */ 
+#define ERROR_FAIL_INTERRUPTED     5   /* caught CTRL-C */ 
 
 /*--------- Kiwibes Server Class -------------------------------- */
 
-class Kiwibes {
+class Kiwibes : public httplib::Server {
 
 public:
   /** Class constructor
@@ -57,23 +59,67 @@ public:
 
     @param argc   number of command line input arguments
     @param argv   array of command line input arguments
+  
+    @return ERROR_NO_ERROR if successfull, error code otherwise
 
     This function parses the command line arguments, starts
     the logger and loads the jobs descriptions. It then schedules
     the jobs that must run periodically.
-
-    In case of error, it forces the application to exit.
   */
-  void init(int argc,char **argv);
+  int init(int argc,char **argv);
 
-  /** Run server main loop
+  /** Return the listening port for the REST interface
+    */
+  unsigned int get_listening_port(void);
 
-    This method runs the HTTP server main loop until it is either
-    stopped by the user or CTRL-C is received.
+  /** REST: Start job
 
-    @returns 0 if successfull, non-null value otherwise
+    @param req  the incoming HTTP request
+    @param res  the outgoing HTTP response
   */
-  int run(void);
+  void post_start_job(const httplib::Request& req, httplib::Response& res);
+
+  /** REST: Stop job
+
+    @param req  the incoming HTTP request
+    @param res  the outgoing HTTP response
+  */
+  void post_stop_job(const httplib::Request& req, httplib::Response& res);
+
+  /** REST: Create job
+
+    @param req  the incoming HTTP request
+    @param res  the outgoing HTTP response
+  */
+  void post_create_job(const httplib::Request& req, httplib::Response& res);
+
+  /** REST: Edit job description
+
+    @param req  the incoming HTTP request
+    @param res  the outgoing HTTP response
+  */
+  void post_edit_job(const httplib::Request& req, httplib::Response& res);
+
+  /** REST: Delete job
+
+    @param req  the incoming HTTP request
+    @param res  the outgoing HTTP response
+  */
+  void post_delete_job(const httplib::Request& req, httplib::Response& res);
+
+  /** REST: Get job description
+
+    @param req  the incoming HTTP request
+    @param res  the outgoing HTTP response
+  */
+  void get_get_job(const httplib::Request& req, httplib::Response& res);
+
+  /** REST: List the name of all jobs
+
+    @param req  the incoming HTTP request
+    @param res  the outgoing HTTP response
+  */
+  void get_list_jobs(const httplib::Request& req, httplib::Response& res);
 
 private:
   /** Show the command line help
@@ -81,6 +127,8 @@ private:
   void show_help(void);
 
   /** Setup the home folder and start the logging system
+
+    @returns ERROR_NO_ERROR if successfull, error code otherwise
 
     It creates the home folder:
       $HOME$/.kiwibes       if running in Linux
@@ -90,18 +138,17 @@ private:
     $APPDATA$ is the user AppData folder in Windows.
 
     The Kiwibes server activity logs are written in the application home folder.
-    In case of faillure, this method forces the application to exit.
    */
-  void setup_home(void);
+  int setup_home(void);
   
   /** Parse the command line arguments
 
+    @returns ERROR_NO_ERROR if successfull, error code otherwise
+
     @param argc   number of command line input arguments
     @param argv   array of command line input arguments
-
-    In case of faillure, this method forces the application to exit.
    */
-  void parse_cmd_line(int argc, char **argv);
+  int parse_cmd_line(int argc, char **argv);
 
 private:
   std::unique_ptr<KiwibesDatabase>    database;   /* contains all information about jobs and the server */

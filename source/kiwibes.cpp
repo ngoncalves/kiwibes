@@ -26,16 +26,12 @@
 */
 #include "kiwibes.h"
 
-#include <cstdlib>
-#include <cstring>
 #include <string>
 #include <iostream>
 
 #include "NanoLog/NanoLog.hpp"
 
 #if defined(__linux__)
-  #include <unistd.h>
-  #include <pwd.h>
   #include <sys/types.h>
   #include <sys/stat.h>
   #include <dirent.h>
@@ -79,87 +75,109 @@ Kiwibes::Kiwibes()
 
 Kiwibes::~Kiwibes()
 {
-  /* stop the jobs scheduler, as well as any job still running */
   scheduler->stop();
-  manager->stop_all();
+  manager->stop_all_jobs();
+  database->save();
 }
 
-void Kiwibes::init(int argc,char **argv)
+unsigned int Kiwibes::get_listening_port(void)
 {
+  return cmd_line[KWB_OPT_HTTP_PORT].value;
+}
+
+int Kiwibes::init(int argc,char **argv)
+{
+  int error = ERROR_NO_ERROR;
+
   std::cout << "[INFO] initialization of the Kiwibes server" << std::endl;
 
   /* parse the command line arguments */
-  parse_cmd_line(argc,argv);
+  error = parse_cmd_line(argc,argv);
 
-  /* setup the home folder and start logging */
-  setup_home();
-
-  /* initialize the database and the scheduler */
-  LOG_INFO << "loading the jobs database";
-  if(false == database->load(*(home.get())))
+  if(ERROR_NO_ERROR == error)
   {
-    LOG_CRIT << "failed to load the database, exiting";
-    exit(EXIT_ERROR_FAIL_LOAD_DATABASE);    
+    /* setup the home folder and start logging */
+    setup_home();
   }
 
-  /* schedule jobs that run periodically */
-  scheduler->start();
-  
-  LOG_INFO << "scheduling periodic jobs";
-  
-  for(auto &job : database->get_all_jobs())
+  if(ERROR_NO_ERROR == error)
   {
-    if(1 == job.count("schedule"))
+    /* initialize the database and the scheduler */
+    LOG_INFO << "loading the jobs database";
+    if(false == database->load(*(home.get())))
     {
-      scheduler->schedule_job(job["name"].get<std::string>());  
+      LOG_CRIT << "failed to load the database, exiting";
+      error = ERROR_FAIL_LOAD_DATABASE;    
     }
   }
 
-  /* initialization is complete, when reaching here */
-  std::cout << "[INFO] the Kiwibes server is initialized" << std::endl;
-  LOG_INFO << "the Kiwibes server is initialized";
-}
-
-void Kiwibes::parse_cmd_line(int argc,char **argv)  
-{
-  for(int a = 1; a < argc; a++)
-  {
-    bool found = false;
-      
-    for(unsigned int opt = 0; opt < sizeof(cmd_line)/sizeof(OPTIONS_T); opt++)
+  if(ERROR_NO_ERROR == error)
+  {  
+    /* schedule jobs that run periodically */
+    scheduler->start();
+  
+    LOG_INFO << "scheduling periodic jobs";
+  
+    for(auto &job : database->get_all_jobs())
     {
-      if((0 == strcmp(cmd_line[opt].option,argv[a])) && (a + 1) < argc) 
+      if(1 == job.count("schedule"))
       {
-        a++;
-        cmd_line[opt].value = strtol(argv[a],NULL,10);
-        found = true;
-        break;  
+        scheduler->schedule_job(job["name"].get<std::string>());  
       }
     }
-
-    if(!found)
-    {
-      show_help();
-      exit(EXIT_ERROR_FAIL_CMD_LINE_PARSE);
-    }
+  
+    /* initialization is complete, when reaching here */
+    std::cout << "[INFO] the Kiwibes server is initialized" << std::endl;
+    LOG_INFO << "the Kiwibes server is initialized";
   }
+
+  return error;
 }
 
-void Kiwibes::setup_home(void)
+int Kiwibes::parse_cmd_line(int argc,char **argv)  
 {
-  /* create the home folder, if it does not exist */
-#if defined(__linux__)
-  const char *user_home = getenv("HOME");
-  if(NULL == user_home)
+  int error = ERROR_NO_ERROR;
+
+  if(2 > argc)
   {
-    home.reset(new std::string(std::string(getpwuid(getuid())->pw_dir) + std::string("/.kiwibes/")));
+    show_help();
+    error = ERROR_FAIL_CMD_LINE_PARSE;  
   }
   else
   {
-    home.reset(new std::string(std::string(user_home) + std::string("/.kiwibes/")));
+    home.reset(new std::string(argv[1]));
+    
+    for(int a = 2; a < argc; a++)
+    {
+      bool found = false;
+      
+      for(unsigned int opt = 0; opt < sizeof(cmd_line)/sizeof(OPTIONS_T); opt++)
+      {
+        if((0 == strcmp(cmd_line[opt].option,argv[a])) && (a + 1) < argc) 
+        {
+          a++;
+          cmd_line[opt].value = strtol(argv[a],NULL,10);
+          found = true;
+          break;  
+        }
+      }
+
+      if(!found)
+      {
+        show_help();
+        error = ERROR_FAIL_CMD_LINE_PARSE;
+      }
+    }
   }
-#endif
-  
+
+  return error;
+}
+
+int Kiwibes::setup_home(void)
+{
+  int error = ERROR_NO_ERROR;
+
+  /* create the home folder, if it does not exist */  
   struct stat path;
     
   if(0 != stat(home->c_str(),&path))
@@ -172,7 +190,7 @@ void Kiwibes::setup_home(void)
     if(0 != mkdir(home->c_str(),S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH))
     {
       std::cout << "[ERROR] failed to create folder: " << *home << std::endl;
-      exit(EXIT_ERROR_FAIL_HOME_SETUP);
+      error = ERROR_FAIL_HOME_SETUP;
     }
     else
     {
@@ -180,27 +198,33 @@ void Kiwibes::setup_home(void)
     }
   }
 
-  /* start logging */
-  nanolog::initialize(nanolog::GuaranteedLogger(),*home,"kiwibes.log",cmd_line[KWB_OPT_LOG_SIZE].value);  
+  if(ERROR_NO_ERROR == error)
+  {
+    /* start logging */
+    nanolog::initialize(nanolog::GuaranteedLogger(),*home,"kiwibes.log",cmd_line[KWB_OPT_LOG_SIZE].value);  
    
-  if(0 == cmd_line[KWB_OPT_LOG_LEVEL].value)
-  {
-    nanolog::set_log_level(nanolog::LogLevel::CRIT);
+    if(0 == cmd_line[KWB_OPT_LOG_LEVEL].value)
+    {
+      nanolog::set_log_level(nanolog::LogLevel::CRIT);
+    }
+    else if(1 == cmd_line[KWB_OPT_LOG_LEVEL].value)
+    {
+      nanolog::set_log_level(nanolog::LogLevel::WARN);  
+    }
+    else
+    {
+      nanolog::set_log_level(nanolog::LogLevel::INFO);    
+    }
   }
-  else if(1 == cmd_line[KWB_OPT_LOG_LEVEL].value)
-  {
-    nanolog::set_log_level(nanolog::LogLevel::WARN);  
-  }
-  else
-  {
-    nanolog::set_log_level(nanolog::LogLevel::INFO);    
-  }
+
+  return error;
 }
 
 void Kiwibes::show_help(void)
 {
-  std::cout << "Usage: kiwibes [OPTIONS]" << std::endl << std::endl;
-  std::cout << "All arguments are optional and set different working parameters:" << std::endl;
+  std::cout << "Usage: kiwibes HOME [OPTIONS]" << std::endl << std::endl;
+  std::cout << "HOME is the location of the kiwibes folder, it will created if it does not exist." << std::endl;
+  std::cout << "The options set different working parameters:" << std::endl;
   
   for(unsigned int opt = 0; opt < sizeof(cmd_line)/sizeof(OPTIONS_T); opt++)
   {
@@ -209,9 +233,37 @@ void Kiwibes::show_help(void)
   std::cout << std::endl;
 }
 
-int Kiwibes::run(void)
+void Kiwibes::post_start_job(const httplib::Request& req, httplib::Response& res)
 {
   /* TODO */
+}
 
-  return EXIT_ERROR_NO_ERROR;
+void Kiwibes::post_stop_job(const httplib::Request& req, httplib::Response& res)
+{
+  /* TODO */
+}
+
+void Kiwibes::post_create_job(const httplib::Request& req, httplib::Response& res)
+{
+  /* TODO */
+}
+
+void Kiwibes::post_edit_job(const httplib::Request& req, httplib::Response& res)
+{
+  /* TODO */
+}
+
+void Kiwibes::post_delete_job(const httplib::Request& req, httplib::Response& res)
+{
+  /* TODO */
+}
+
+void Kiwibes::get_get_job(const httplib::Request& req, httplib::Response& res)
+{
+  /* TODO */
+}
+
+void Kiwibes::get_list_jobs(const httplib::Request& req, httplib::Response& res)
+{
+  /* TODO */
 }

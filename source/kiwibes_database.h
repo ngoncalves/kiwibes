@@ -33,6 +33,7 @@
 #include <string>
 #include <map>
 #include <memory>
+#include <chrono>
 #include "nlohmann/json.h"
 
 class KiwibesDatabase {
@@ -75,6 +76,19 @@ public:
     @return the JSON description of the job,  nullptr if the name was not found 
    */
   const nlohmann::json &get_job(const std::string &name);
+
+  /** Change the job state to 'running'
+
+   @param name  the name of the job
+  */
+  void job_started(const std::string &name);
+
+  /** Change the job state to 'stopped'
+
+   @param name      the name of the job
+   @param runtime   the number of seconds during which the job ran
+  */
+  void job_stopped(const std::string &name, std::time_t runtime);
 
 private:
   std::mutex                      dblock;   /* synchronize access to the database */

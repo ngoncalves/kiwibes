@@ -114,12 +114,17 @@ bool KiwibesDatabase::load(const std::string &home)
         /* if the runtime statistics are not preset, create them */
         if(0 == job["avg-runtime"])
         {
-          job["avg-runtime"] = 0.0;
+          job["avg-runtime"] = (double)0.0;
         }
 
-        if(0 == job["stdev-runtime"])
+        if(0 == job["cov-runtime"])
         {
-          job["stdev-runtime"] = 0.0;
+          job["cov-runtime"] = (double)0.0;
+        }
+
+        if(0 == job["number-runs"])
+        {
+          job["number-runs"] = (unsigned long int)0;
         }
 
         /* reset the job state to 'stopped' */
@@ -183,4 +188,43 @@ const nlohmann::json &KiwibesDatabase::get_job(const std::string &name)
   }
 
   return (*db)["empty"];  
+}
+
+void KiwibesDatabase::job_started(const std::string &name)
+{
+  std::lock_guard<std::mutex> lock(dblock);
+
+  for(auto &job : (*db)["jobs"])
+  {
+    if(0 == name.compare(job["name"]))
+    {
+      job["status"] = "running";
+    }
+  }
+}
+
+void KiwibesDatabase::job_stopped(const std::string &name, std::time_t runtime)
+{
+  for(auto &job : (*db)["jobs"])
+  {
+    if(0 == name.compare(job["name"]))
+    {
+      job["status"] = "stopped";
+      // update the run-time statistics using Welford's algorithm:
+      // https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_Online_algorithm
+      unsigned long int count = job["number-runs"].get<unsigned long int>();
+      double            mean  = job["avg-runtime"].get<double>();
+      double            cov   = job["cov-runtime"].get<double>();
+      double            delta = runtime - mean;
+      
+      count += 1;
+      mean  += delta/count;
+      cov   += delta*(runtime - mean);
+
+      // update the mean and sample covariance if there are enough samples
+      job["number-runs"] = count; 
+      job["avg-runtime"] = mean;
+      job["cov-runtime"] = (count < 2 ? cov : cov/(count - 1)); 
+    }
+  }
 }
