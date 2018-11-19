@@ -29,27 +29,24 @@
 #define __KIWIBES_JOBS_MANAGER_H__
 
 #include "kiwibes_database.h"
+#include "kiwibes_errors.h"
+
+#include "nlohmann/json.h"
+
 #include <map>
 #include <string>
 #include <mutex>
 #include <thread>
-#include <chrono>
 
 #if defined(__linux__)
   #include <sys/types.h>
   #include <unistd.h>
 
   typedef pid_t T_PROCESS_HANDLER;
+  #define INVALID_PROCESS_HANDLE (-1)
 #else
   #error "OS not supported"
 #endif 
-
-/** Definition of a job 
- */
-typedef struct{
-  T_PROCESS_HANDLER handle;     /* process handler */
-  std::time_t       started;    /* when the process started */
-} T_JOB;
 
 class KiwibesJobsManager {
 
@@ -67,16 +64,16 @@ public:
   /** Start the job with the given name
 
     @param name   name of the job to start
-    @return true if successfull, false otherwise
+    @return ERROR_NO_ERROR if successfull, error code otherwise
   */
-  bool start_job(const std::string &name);
+  T_KIWIBES_ERROR start_job(const std::string &name);
   
   /** Stop the job with the given name
 
     @param name   name of the job to stop
-    @return true if successfull, false otherwise
+    @return ERROR_NO_ERROR if successfull, error code otherwise
   */
-  bool stop_job(const std::string &name);
+  T_KIWIBES_ERROR stop_job(const std::string &name);
 
   /** Stop all of the currently running jobs
    */
@@ -84,15 +81,18 @@ public:
 
 private:
   /** Launch the job in a separate process
+
+    @param job  the job description
+    @returns process handle
    */
-  T_JOB *launch_job(const nlohmann::json &description);
+  T_PROCESS_HANDLER launch_job(nlohmann::json &job);
 
 private:
-  KiwibesDatabase                 *database;    /* private pointer to the database */
-  std::map<std::string, T_JOB *>  active_jobs;  /* active jobs */
-  std::mutex                      jobs_lock;    /* exclusive access to the list of running jobs */
-  std::unique_ptr<std::thread>    watcher;      /* thread that waits for child processes to exit */
-  bool                            watcherExit;  /* flag to indicate when the watcher thread should exit */
+  KiwibesDatabase                          *database;    /* private pointer to the database */
+  std::map<std::string, T_PROCESS_HANDLER> active_jobs;  /* active jobs */
+  std::mutex                               jobs_lock;    /* exclusive access to the list of running jobs */
+  std::unique_ptr<std::thread>             watcher;      /* thread that waits for child processes to exit */
+  bool                                     watcherExit;  /* flag to indicate when the watcher thread should exit */
 };  
 
 #endif

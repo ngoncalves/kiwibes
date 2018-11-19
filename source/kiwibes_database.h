@@ -23,18 +23,20 @@
   -------
 
   This class implements the interface layer for the database.
-  In practice the "database" is a simple JSON file, located in
-  the home folder of the Kiwibes server.
+  On disk, the database is stored in a JSON file. Which is then
+  loaded and modified in memory.
 */
 #ifndef __KIWIBES_DATABASE_H__
 #define __KIWIBES_DATABASE_H__
 
+#include "kiwibes_errors.h"
+
+#include "nlohmann/json.h"
+
 #include <mutex>
 #include <string>
-#include <map>
+#include <vector>
 #include <memory>
-#include <chrono>
-#include "nlohmann/json.h"
 
 class KiwibesDatabase {
 
@@ -43,57 +45,89 @@ public:
    */
   KiwibesDatabase();
 
-  /** Class destructor
-   */
-  ~KiwibesDatabase();
-
   /** Load the job descriptions to memory
 
     The database is the JSON file "kiwibes.json" located in
     the home folder. 
 
     @param home  full path to the folder containing the database
-    @return true if successfull, false otherwise
+    @return ERROR_NO_ERROR if successfull, error code otherwise
   */
-  bool load(const std::string &home);
+  T_KIWIBES_ERROR load(const std::string &home);
 
-  /** Save the database to file
+  /** Save the job descriptions to file
 
-    @return true if successfull, false otherwise
+    The database is the JSON file "kiwibes.json" located in
+    the home folder. 
 
-    It creates a backup of the current filde, and then
-    saves the database information to file.
-  */ 
-  bool save(void);
+    @return ERROR_NO_ERROR if successfull, error code otherwise
+  */
+  T_KIWIBES_ERROR save(void);
 
-  /** Return a JSON list with all jobs 
-   */
-  const nlohmann::json &get_all_jobs(void);
-
-  /** Return the JSON description of a job 
+  /** Update the job status to running
 
     @param name   the name of the job
-    @return the JSON description of the job,  nullptr if the name was not found 
    */
-  const nlohmann::json &get_job(const std::string &name);
-
-  /** Change the job state to 'running'
-
-   @param name  the name of the job
-  */
   void job_started(const std::string &name);
 
-  /** Change the job state to 'stopped'
+  /** Update the job status to stopped
 
-   @param name      the name of the job
-   @param runtime   the number of seconds during which the job ran
+    @param name   the name of the job
+   */
+  void job_stopped(const std::string &name);
+
+  /** Return the names of the jobs that can be scheduled
+
+    @param jobs   on return contains the names of the jobs that can be scheduled
+   */
+  void get_all_schedulable_jobs(std::vector<std::string> &jobs);
+
+  /** Return the names of all jobs
+
+    @param jobs   on return contains the names of all jobs  
+   */
+  void get_all_job_names(std::vector<std::string> &jobs);  
+
+  /** Return the description of the given job
+
+   @param job   on return contains the JSON description of the job
+   @param name  the name of the job 
+   @return ERROR_NO_ERROR if successfull, error code otherwise
   */
-  void job_stopped(const std::string &name, std::time_t runtime);
+  T_KIWIBES_ERROR get_job_description(nlohmann::json &job, const std::string &name);
+
+  /** Delete the job with the given name 
+
+   @param name  the name of the job
+   @return ERROR_NO_ERROR if successfull, error code otherwise
+  */
+  T_KIWIBES_ERROR delete_job(const std::string &name);
+
+  /** Create a new job with the given details
+
+   @param name      the name of the job 
+   @param details   the description of the job
+   @return ERROR_NO_ERROR if successfull, error code otherwise
+  */
+  T_KIWIBES_ERROR create_job(const std::string &name, const nlohmann::json &details);
+
+  /** Update the job with the new details
+
+   @param name      the name of the job 
+   @param details   the description of the job
+   @return ERROR_NO_ERROR if successfull, error code otherwise
+  */
+  T_KIWIBES_ERROR edit_job(const std::string &name, const nlohmann::json &details);
 
 private:
+  /** Save the database to file, without locking it first
+   */
+  void unsafe_save(void);
+  
+private:
+  std::unique_ptr<std::string>    dbpath;   /* path to the Kiwibes database file */                     
   std::mutex                      dblock;   /* synchronize access to the database */
-  std::unique_ptr<std::string>    dbhome;   /* full path to the folder containing the database */
-  std::unique_ptr<nlohmann::json> db;       /* the database */
+  std::unique_ptr<nlohmann::json> dbjobs;   /* the jobs database, kept in memory */ 
 };
 
 #endif

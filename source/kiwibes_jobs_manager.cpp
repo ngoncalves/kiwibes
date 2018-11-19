@@ -25,8 +25,12 @@
   See the respective header file for details.
 */
 #include "kiwibes_jobs_manager.h"
+
 #include "NanoLog/NanoLog.hpp"
 
+#include <vector>
+#include <string>
+#include <chrono>
 #include <cerrno>
 #include <cstring>
 #include <cstdlib>
@@ -47,7 +51,7 @@
   @param exitFlag     set to true when the thread should exit 
  */
 static void watcher_thread(KiwibesDatabase *database,
-                           std::map<std::string, T_JOB *> *active_jobs,
+                           std::map<std::string, T_PROCESS_HANDLER> *active_jobs,
                            std::mutex *jobs_lock,
                            bool *exitFlag);
 
@@ -63,129 +67,137 @@ KiwibesJobsManager::KiwibesJobsManager(KiwibesDatabase *database)
 
 KiwibesJobsManager::~KiwibesJobsManager()
 {
-  /* stop all jobs and als othe watcher thread */
+  /* stop all jobs and also the watcher thread */
   stop_all_jobs();
-  watcherExit = true; 
+
+  watcherExit = true;
+  LOG_INFO << "waiting for the watcher thread to finish"; 
   watcher->join();
+  LOG_INFO << "the watcher thread has finished";
 }
 
-bool KiwibesJobsManager::start_job(const std::string &name)
+T_KIWIBES_ERROR KiwibesJobsManager::start_job(const std::string &name)
 {
   std::lock_guard<std::mutex> lock(jobs_lock);
 
-  bool fail = false;
+  T_KIWIBES_ERROR error = ERROR_NO_ERROR;
+  nlohmann::json  job;
 
   if(1 == active_jobs.count(name))
   {
     LOG_INFO << "Job '" << name << "' is already running, not starting it";
-    fail = true;
+    error = ERROR_JOB_IS_RUNNING;
   }
-  else
-  {   
-    nlohmann::json description = database->get_job(name);
 
-    if(nullptr == description)
+  if(ERROR_NO_ERROR == error)
+  {   
+    error = database->get_job_description(job,name);
+
+    if(ERROR_NO_ERROR != error)
     {
-      LOG_INFO << "No job with name '" << name << "' was found in the database";  
-      fail = true;
+      LOG_WARN << "No job with name '" << name << "' was found in the database";  
     }
+  }
+
+  if(ERROR_NO_ERROR == error)
+  {
+    T_PROCESS_HANDLER handle = launch_job(job);
+
+    if(INVALID_PROCESS_HANDLE != handle)
+    {
+      active_jobs.insert(std::pair<std::string,T_PROCESS_HANDLER>(name,handle));
+      database->job_started(name);
+    }    
     else
     {
-      T_JOB *job = launch_job(description);
-
-      if(NULL != job)
-      {
-        active_jobs.insert(std::pair<std::string,T_JOB* >(name,job));
-        database->job_started(name);
-      }    
-      else
-      {
-        fail = true;
-      }
-    } 
+      LOG_CRIT << "Failed to launch process for job '" << name << "'";  
+      error = ERROR_PROCESS_LAUNCH_FAILED;
+    }
   }
-
-  return !fail;
+    
+  return error;
 }
   
-bool KiwibesJobsManager::stop_job(const std::string &name)
+T_KIWIBES_ERROR KiwibesJobsManager::stop_job(const std::string &name)
 {
   std::lock_guard<std::mutex> lock(jobs_lock);
 
-  bool fail = false;
-  std::map<std::string,T_JOB *>::iterator iter = active_jobs.find(name);
+  T_KIWIBES_ERROR error = ERROR_NO_ERROR;
+
+  std::map<std::string,T_PROCESS_HANDLER>::iterator iter = active_jobs.find(name);
 
   if(active_jobs.end() == iter)
   {
-    LOG_INFO << "Job '" << name << "' is not running, not stopping it";
-    fail = true;
+    LOG_WARN << "Job '" << name << "' is not running, not stopping it";
+    error = ERROR_JOB_IS_NOT_RUNNING;
   }
   else
   {
 #if defined(__linux__)
     /* kill the child process and let the watcher thread to handle its exit */
-    kill((*iter).second->handle,SIGKILL);
+    LOG_INFO << "Killing process for job '" << name << "'";
+    kill((*iter).second,SIGKILL);
 #endif    
   }
 
-  return !fail;
+  return error;
 }
 
 void KiwibesJobsManager::stop_all_jobs(void)
 {
   std::lock_guard<std::mutex> lock(jobs_lock);
 
-  for(std::map<std::string,T_JOB *>::iterator iter = active_jobs.begin(); iter != active_jobs.end(); iter++)
+  for(std::map<std::string,T_PROCESS_HANDLER>::iterator iter = active_jobs.begin(); iter != active_jobs.end(); iter++)
   {
 #if defined(__linux__)
     /* kill the child process and let the watcher thread to handle its exit */
-    kill((*iter).second->handle,SIGKILL);
+    LOG_INFO << "Killing process for job '" << (*iter).first << "'";
+    kill((*iter).second,SIGKILL);
 #endif        
   }
 }
 
-T_JOB *KiwibesJobsManager::launch_job(const nlohmann::json &description)
+T_PROCESS_HANDLER KiwibesJobsManager::launch_job(nlohmann::json &job)
 {
-  T_JOB *job = new T_JOB;
+  T_PROCESS_HANDLER handle = INVALID_PROCESS_HANDLE;
 
 #if defined(__linux__)
-  job->handle = fork();
-  if(0 == job->handle)
+  handle = fork();
+  
+  if(0 == handle)
   {
     /* child process, start the process with the given command line */
-    std::vector<std::string> command = description["command"].get<std::vector<std::string> >();
+    std::vector<std::string> program(job["program"].get<std::vector<std::string> >());
 
-    char **arguments = (char **)malloc(sizeof(char *)*(1 + command.size()));
-    for(unsigned int a = 0; a < command.size(); a++)
+    char **arguments = (char **)malloc(sizeof(char *)*(1 + program.size()));
+    for(unsigned int a = 0; a < program.size(); a++)
     {
-      arguments[a] = (char *)command[a].c_str();
+      arguments[a] = (char *)program[a].c_str();
     }
-    arguments[command.size()] = NULL;
+    arguments[program.size()] = NULL;
 
-    execv(command[0].c_str(),(char *const *)arguments);
+    execv(program[0].c_str(),(char *const *)arguments);
 
     /* should not reach here */
-    return NULL;
+    return INVALID_PROCESS_HANDLE;
   }
-  else if(0 < job->handle)
+  else if(0 < handle)
   {
     /* parent process, begin monitoring the job */
-    job->started = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    database->job_started(job["name"].get<std::string>());
   }
   else    
   {
     /* an error occurred */
     LOG_CRIT << "Failed to fork new process(" << errno << "): "<< strerror(errno);
-    delete job; 
-    job = NULL;
   }
 #endif 
 
-  return job; 
+  return handle; 
 }
 
 /*------------------ Private Functions Definitions ----------------------*/
-static void watcher_thread(KiwibesDatabase *database, std::map<std::string, T_JOB *> *active_jobs, std::mutex *jobs_lock, bool *exitFlag)
+static void watcher_thread(KiwibesDatabase *database, std::map<std::string, T_PROCESS_HANDLER> *active_jobs, std::mutex *jobs_lock, bool *exitFlag)
 {
   while(false == *exitFlag)
   {
@@ -205,16 +217,14 @@ static void watcher_thread(KiwibesDatabase *database, std::map<std::string, T_JO
     {
       if(WIFEXITED(wstatus) || WIFSIGNALED(wstatus))
       {
-        for(std::map<std::string, T_JOB *>::iterator iter = active_jobs->begin(); iter != active_jobs->end(); iter++)
+        for(std::map<std::string, T_PROCESS_HANDLER>::iterator iter = active_jobs->begin(); iter != active_jobs->end(); iter++)
         {
-          if(pid == (*iter).second->handle)
+          if(pid == (*iter).second)
           {
-            std::time_t runtime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()) - (*iter).second->started;
-
             /* notify the database that the job has finished and then remove 
-              the job from the map of active jobs
+               the job from the map of active jobs
              */
-            database->job_stopped((*iter).first,runtime);
+            database->job_stopped((*iter).first);
             active_jobs->erase(iter);
             break;
           }

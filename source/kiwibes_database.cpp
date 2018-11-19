@@ -24,207 +24,293 @@
 
   See the respective header file for details.
 */
+#include "kiwibes_database.h"
+#include "kiwibes_errors.h"
+#include "kiwibes_cron.h"
+
+#include "NanoLog/NanoLog.hpp"
+
+#include <chrono>
 #include <fstream>
 #include <iomanip>
-#include "kiwibes_database.h"
-#include "kiwibes_cron_parser.h"
-#include "NanoLog/NanoLog.hpp"
-#include "ccronexpr/ccronexpr.h"
 
 KiwibesDatabase::KiwibesDatabase()
 {
-  dbhome.reset(nullptr);
-  db.reset(nullptr);
+  dbpath.reset(nullptr);
+  dbjobs.reset(nullptr);
 }
 
-KiwibesDatabase::~KiwibesDatabase()
-{
-
-}
-
-bool KiwibesDatabase::load(const std::string &home)
+T_KIWIBES_ERROR KiwibesDatabase::load(const std::string &home)
 { 
   std::lock_guard<std::mutex> lock(dblock);
 
-  bool fail = false;
+  T_KIWIBES_ERROR error = ERROR_NO_ERROR;
 
-  dbhome.reset(new std::string(home));
+  dbpath.reset(new std::string(std::string(home) + std::string("/kiwibes.json")));
+  dbjobs.reset(new nlohmann::json);
 
-  /* clear the current database */
-  db.reset(new nlohmann::json());
-  (*db)["backup_counter"] = 0;
-  (*db)["jobs"]           = nullptr;
-
-  /* read the database file */
-  std::string dbfname = std::string(*dbhome + std::string("/kiwibes.json"));
-  std::ifstream dbfile(dbfname);
+  std::ifstream dbfile((*dbpath));
 
   if(true == dbfile.is_open())
   {
     try
     {
-      /* load the database */
-      dbfile >> *db;
+      /* load the database and then validate its contents */
+      nlohmann::json database;
+      dbfile >> *dbjobs;
 
-      /* make sure that each job has:
-        - a name 
-        - a command 
-        - a maximum runtime in seconds        
-        - a state: running or stopped, initially at stopped
-        - average run time
-        - standard deviation for the run time     
-        - optionally a schedule
-      */
-      for(auto &job : (*db)["jobs"])
+      for(nlohmann::json::iterator job = dbjobs->begin() ; job != dbjobs->end(); job++)
       {
-        /* the name, command and max-runtime fields are mandatory. And if the
-           schedule field is present, it must be a valid CRON expression
-         */
-        if(0 == job.count("name"))
-        {
-          LOG_CRIT << "found a job without field 'name'";
-          fail = true;
-          break;
-        }
-        else if(0 == job.count("command"))
-        {
-          LOG_CRIT << "job '" << job["name"].get<std::string>() << "' has no field 'command'";
-          fail = true;
-          break;
-        }
-        else if(0 == job.count("max-runtime"))
-        {
-          LOG_CRIT << "job '" << job["name"].get<std::string>() << "' has no field 'max-runtime'";
-          fail = true;
-          break;
-        }
-        else if(1 == job.count("schedule"))
-        {
-          /* verify that the CRON expression is valid */
-          KiwibesCronParser cron(job["schedule"].get<std::string>());
+        const char *expected[] = { 
+          "program","max-runtime","avg-runtime","var-runtime","schedule","status",
+          "start-time","nbr-runs",
+        };
 
-          if(false == cron.is_valid())
+        for(unsigned int f = 0; f < sizeof(expected)/sizeof(const char *); f++)
+        {
+          if(0 == job.value().count(expected[f]))
           {
-            LOG_CRIT << "job '" << job["name"].get<std::string>() << "' has an invalid schedule";
-            fail = true;
-            break;    
+            LOG_CRIT << "job '" << job.key() << "' missing filed '" << expected[f] << "'";
+            error = ERROR_JOB_DESCRIPTION_INVALID;
+            break;  
           }
         }
 
-        /* if the runtime statistics are not preset, create them */
-        if(0 == job["avg-runtime"])
+        if(ERROR_NO_ERROR == error)
         {
-          job["avg-runtime"] = (double)0.0;
-        }
-
-        if(0 == job["cov-runtime"])
-        {
-          job["cov-runtime"] = (double)0.0;
-        }
-
-        if(0 == job["number-runs"])
-        {
-          job["number-runs"] = (unsigned long int)0;
-        }
-
-        /* reset the job state to 'stopped' */
-        job["state"] = "stopped";
+          /* valid job description, reset some of the fields */
+          job.value()["status"]     = "stopped";
+          job.value()["start-time"] = 0;
+        }     
       }
     }
     catch(nlohmann::detail::parse_error &e)
     {
-      LOG_CRIT << "failed to parse JSON file: " << dbfname;
+      LOG_CRIT << "failed to parse JSON file: " << (*dbpath);
       LOG_CRIT << "JSON error: " << e.what();
-      fail = true; 
+      error = ERROR_JSON_PARSE_FAIL;
     }
-  }
-
-  /* add and empty object */
-  (*db)["empty"] = nullptr;
-
-  return !fail; 
-}
-
-bool KiwibesDatabase::save(void)
-{
-  std::lock_guard<std::mutex> lock(dblock);
-
-  bool              success        = true;
-  unsigned int long backup_counter = (*db)["backup_counter"];  
-  std::string       dbfname        = std::string(*dbhome + std::string("/kiwibes.json"));
-
-  /* backup the current file, if there is one */
-  if(0 != std::rename(dbfname.c_str(),(dbfname + std::to_string(backup_counter)).c_str()))
-  {
-    LOG_CRIT << "failed to backup the database: ";
   }
   else
   {
-    std::ofstream dbfile(dbfname);
-    dbfile << std::setw(4) << (*db) << std::endl;
-    (*db)["backup_counter"] += 1;  
+    LOG_WARN << "could not open the JSON file: " << (*dbpath);
+    LOG_WARN << "database of jobs is empty";
   }
-  
-  return success; 
-} 
 
-const nlohmann::json &KiwibesDatabase::get_all_jobs(void)
-{
-  std::lock_guard<std::mutex> lock(dblock);
-
-  return (*db)["jobs"];  
+  return error; 
 }
 
-const nlohmann::json &KiwibesDatabase::get_job(const std::string &name)
+T_KIWIBES_ERROR KiwibesDatabase::save(void)
 {
   std::lock_guard<std::mutex> lock(dblock);
 
-  for(auto &job : (*db)["jobs"])
-  {
-    if(0 == name.compare(job["name"]))
-    {
-      return job;
-    }
-  }
+  unsafe_save();
 
-  return (*db)["empty"];  
+  return ERROR_NO_ERROR; 
+} 
+
+void KiwibesDatabase::unsafe_save(void)
+{
+  std::ofstream dbfile((*dbpath));
+  dbfile << std::setw(4) << (*dbjobs) << std::endl;
 }
 
 void KiwibesDatabase::job_started(const std::string &name)
 {
   std::lock_guard<std::mutex> lock(dblock);
 
-  for(auto &job : (*db)["jobs"])
+  if(0 == (*dbjobs).count(name))
   {
-    if(0 == name.compare(job["name"]))
+    LOG_CRIT << "could not find job '" << name << "'";
+  }
+  else
+  {
+    LOG_INFO << "has started, job '" << name << "'";
+
+    (*dbjobs)[name]["status"]     = "running";
+    (*dbjobs)[name]["start-time"] = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+
+    unsafe_save();
+  }
+}
+
+void KiwibesDatabase::job_stopped(const std::string &name)
+{
+  std::lock_guard<std::mutex> lock(dblock);
+
+  if(0 == (*dbjobs).count(name))
+  {
+    LOG_CRIT << "could not find job '" << name << "'";
+  }
+  else
+  {
+    LOG_INFO << "has stopped, job '" << name << "'";
+    std::time_t       now     = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    std::time_t       runtime = now - (*dbjobs)[name]["start-time"].get<std::time_t>();
+    unsigned long int runs    = (*dbjobs)[name]["nbr-runs"].get<unsigned long int>() + 1;
+    double            avg     = (*dbjobs)[name]["avg-runtime"].get<double>();
+    double            var     = (*dbjobs)[name]["var-runtime"].get<double>();
+    double            delta   = runtime - avg;
+    
+    avg += delta/runs; 
+    var += delta*(runtime - avg);
+
+    /* update the job status and its runtime statistics */
+    (*dbjobs)[name]["status"]      = "stopped";
+    (*dbjobs)[name]["start-time"]  = 0;
+    (*dbjobs)[name]["avg-runtime"] = avg;
+    (*dbjobs)[name]["var-runtime"] = var;
+
+    unsafe_save();
+  }
+}
+
+void KiwibesDatabase::get_all_schedulable_jobs(std::vector<std::string> &jobs)
+{
+  std::lock_guard<std::mutex> lock(dblock);
+
+  for(nlohmann::json::iterator job = dbjobs->begin() ; job != dbjobs->end(); job++)
+  {
+    KiwibesCron cron(job.value()["schedule"].get<std::string>());
+    
+    if(true == cron.is_valid())
     {
-      job["status"] = "running";
+      jobs.push_back(job.key());
     }
   }
 }
 
-void KiwibesDatabase::job_stopped(const std::string &name, std::time_t runtime)
+void KiwibesDatabase::get_all_job_names(std::vector<std::string> &jobs)
 {
-  for(auto &job : (*db)["jobs"])
-  {
-    if(0 == name.compare(job["name"]))
-    {
-      job["status"] = "stopped";
-      // update the run-time statistics using Welford's algorithm:
-      // https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_Online_algorithm
-      unsigned long int count = job["number-runs"].get<unsigned long int>();
-      double            mean  = job["avg-runtime"].get<double>();
-      double            cov   = job["cov-runtime"].get<double>();
-      double            delta = runtime - mean;
-      
-      count += 1;
-      mean  += delta/count;
-      cov   += delta*(runtime - mean);
+  std::lock_guard<std::mutex> lock(dblock);
 
-      // update the mean and sample covariance if there are enough samples
-      job["number-runs"] = count; 
-      job["avg-runtime"] = mean;
-      job["cov-runtime"] = (count < 2 ? cov : cov/(count - 1)); 
-    }
+  for(nlohmann::json::iterator job = dbjobs->begin() ; job != dbjobs->end(); job++)
+  {
+    jobs.push_back(job.key());
   }
+}
+
+T_KIWIBES_ERROR KiwibesDatabase::get_job_description(nlohmann::json &job, const std::string &name)
+{
+  std::lock_guard<std::mutex> lock(dblock);
+
+  T_KIWIBES_ERROR          error = ERROR_NO_ERROR;
+  nlohmann::json::iterator iter  = dbjobs->find(name);
+
+  if(dbjobs->end() == iter)
+  {
+    error = ERROR_JOB_NAME_UNKNOWN;
+  }
+  else
+  {
+    job = iter.value();
+  }
+
+  return error;
+}
+
+T_KIWIBES_ERROR KiwibesDatabase::delete_job(const std::string &name)
+{
+  std::lock_guard<std::mutex> lock(dblock);
+
+  T_KIWIBES_ERROR          error = ERROR_NO_ERROR;
+  nlohmann::json::iterator iter  = dbjobs->find(name);
+
+  if(dbjobs->end() == iter)
+  {
+    error = ERROR_JOB_NAME_UNKNOWN;
+  }
+  else
+  {
+    /* delete the job by patching the database */
+    nlohmann::json remove;
+
+    remove["op"]   = "remove";
+    remove["path"] = std::string("/") + name;
+
+    nlohmann::json *new_db = new nlohmann::json(dbjobs->patch(remove));
+    dbjobs.reset(new_db);
+
+    unsafe_save();
+  }
+
+  return error;  
+}
+
+T_KIWIBES_ERROR KiwibesDatabase::create_job(const std::string &name, const nlohmann::json &details)
+{
+  /* verify the details contain the necessary information */
+  T_KIWIBES_ERROR error = ERROR_NO_ERROR;
+
+  if((0 == details.count("program")) || 
+     (0 == details.count("schedule")) || 
+     (0 == details.count("max-runtime")))
+  {
+    error = ERROR_JOB_DESCRIPTION_INVALID;
+  }
+
+  if(ERROR_NO_ERROR == error)
+  {
+    std::lock_guard<std::mutex> lock(dblock);
+
+    nlohmann::json::iterator iter  = dbjobs->find(name);
+
+    if(dbjobs->end() != iter)
+    {
+      error = ERROR_JOB_NAME_TAKEN;
+    }
+    else
+    {
+      /* set the job details */
+      (*dbjobs)[name]["program"]     = details["program"].get<std::vector<std::string> >(); 
+      (*dbjobs)[name]["schedule"]    = details["schedule"].get<std::string>(); 
+      (*dbjobs)[name]["max-runtime"] = details["max-runtime"].get<std::time_t>(); 
+
+      /* reset the job parameters */
+      (*dbjobs)[name]["avg-runtime"] = 0.0; 
+      (*dbjobs)[name]["var-runtime"] = 0.0; 
+      (*dbjobs)[name]["status"]      = "stopped"; 
+      (*dbjobs)[name]["start-time"]  = 0; 
+      (*dbjobs)[name]["nbr-runs"]    = 0; 
+
+      unsafe_save();
+    }  
+  }
+
+  return error;
+}
+
+T_KIWIBES_ERROR KiwibesDatabase::edit_job(const std::string &name, const nlohmann::json &details)
+{
+  std::lock_guard<std::mutex> lock(dblock);
+
+  T_KIWIBES_ERROR          error = ERROR_NO_ERROR;
+  nlohmann::json::iterator iter  = dbjobs->find(name);
+
+  if(dbjobs->end() == iter)
+  {
+    error = ERROR_JOB_NAME_UNKNOWN;
+  }
+  else
+  {
+    /* set the job details */
+    if(1 == details.count("program"))
+    {
+      (*dbjobs)[name]["program"] = details["program"].get<std::vector<std::string> >();   
+    }
+    
+    if(1 == details.count("schedule"))
+    {
+      (*dbjobs)[name]["schedule"] = details["schedule"].get<std::string>();   
+    }
+    
+    if(1 == details.count("max-runtime"))
+    {
+      (*dbjobs)[name]["max-runtime"] = details["max-runtime"].get<std::string>();   
+    }
+
+    unsafe_save();
+  }  
+  
+  return error;
 }

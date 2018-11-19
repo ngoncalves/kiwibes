@@ -22,3 +22,6 @@ The automation server provides both a web and a REST interfaces for managing
 jobs, as well as starting and stopping them. 
 
 The list of jobs is read on startup from a JSON file.
+
+TODO:
+	- UTF-8 support: not sure if it supports other languages, besides English

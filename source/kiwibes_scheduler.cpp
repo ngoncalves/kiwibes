@@ -25,7 +25,7 @@
   See the respective header file for details.
 */
 #include "kiwibes_scheduler.h"
-#include "kiwibes_cron_parser.h"
+#include "kiwibes_cron.h"
 #include "NanoLog/NanoLog.hpp"
 #include <chrono>
 #include <vector>
@@ -116,29 +116,23 @@ void KiwibesScheduler::stop(void)
   }
 }
 
-bool KiwibesScheduler::schedule_job(const std::string &name)
+T_KIWIBES_ERROR KiwibesScheduler::schedule_job(const std::string &name)
 {
-  bool           fail = false;
-  nlohmann::json job  = database->get_job(name);
+  nlohmann::json  job;
+  T_KIWIBES_ERROR error = database->get_job_description(job,name);
 
-  if(nullptr == job)
+  if(ERROR_NO_ERROR != error)
   {
-    LOG_CRIT << "cannot schedule job '" << name << "' because it does not exist";
-    fail = false;
+    LOG_CRIT << "cannot find a job with name '" << name << "'";
   } 
-  else if(0 == job.count("schedule"))
-  {
-    LOG_CRIT << "cannot schedule job '" << name << "' because it does not have a schedule";
-    fail = false;
-  }     
   else
   {
-    KiwibesCronParser cron(job["schedule"].get<std::string>());
+    KiwibesCron cron(job["schedule"].get<std::string>());
 
     if(false == cron.is_valid())
     {
       LOG_CRIT << "job '" << name << "' has an invalid schedule";
-      fail = true;
+      error = ERROR_JOB_SCHEDULE_INVALID;
     }
     else
     {
@@ -150,7 +144,7 @@ bool KiwibesScheduler::schedule_job(const std::string &name)
     }
   }
 
-  return !fail; 
+  return error; 
 }
 
 void KiwibesScheduler::unschedule_job(const std::string &name)
@@ -166,7 +160,7 @@ void KiwibesScheduler::unschedule_job(const std::string &name)
 
   for(unsigned int e = 0; e < vEvents.size(); e++)
   {
-    if(0 == name.compare(*(vEvents[e]->job.get())))
+    if(0 == name.compare(*(vEvents[e]->job_name)))
     {
       vEvents[e]->type = EVENT_STOP_JOB;
     }
@@ -184,34 +178,27 @@ static void scheduler_thread(KiwibesScheduler *scheduler, KiwibesJobsManager *ma
   while(false == exit_event_received)
   {
     /* verify if the first waiting event has occurred */
-    KiwibesSchedulerEvent *event = nullptr;
-    std::time_t            now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 
     qlock->lock();
 
-    if(!(events->empty()) && (now >= events->top()->t0))
+    while((false == exit_event_received) && !(events->empty()) && (now >= events->top()->t0))
     {
-      event = events->top();
-      events->pop();
-    }
+      KiwibesSchedulerEvent *event = events->top();
 
-    qlock->unlock();
-
-    if(nullptr != event)
-    {
       switch(event->type)
       {
         case EVENT_START_JOB:
           /* start the job, then re-schedule it again */
           {
-            manager->start_job(*(event->job.get()));
-            scheduler->schedule_job(*(event->job.get()));
+            manager->start_job(*(event->job_name));
+            scheduler->schedule_job(*(event->job_name));
           }
           break;
 
         case EVENT_STOP_JOB:
           /* nothing to do, simply ignore it */
-          LOG_INFO << "not re-scheduling job: " << *(event->job.get());
+          LOG_INFO << "not re-scheduling job '" << *(event->job_name) << "'";
           break;
 
         case EVENT_EXIT_SCHEDULER:
@@ -223,14 +210,13 @@ static void scheduler_thread(KiwibesScheduler *scheduler, KiwibesJobsManager *ma
           break;
       }
 
+      events->pop();
       delete event;
     }
-    else
-    {
-      /* snooze a little to give the main thread a change at inserting 
-         events in the queue 
-       */
-      std::this_thread::sleep_for(std::chrono::milliseconds(250));
-    }
+
+    qlock->unlock();
+
+    /* snooze a little to give the main thread a change at inserting events in the queue */
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 }

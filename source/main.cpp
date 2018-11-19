@@ -27,6 +27,7 @@
 #include <iostream>
 #include <memory>
 #include "kiwibes.h"
+#include "kiwibes_errors.h"
 #include "cpp-httplib/httplib.h"
 #include "NanoLog/NanoLog.hpp"
 
@@ -43,12 +44,15 @@
 /*--------------------------Private Data Definitions -------------------------------*/
 /** Copyright and version information
  */
-#define KIWIBES_VERSION     "0.0.1"
+#define KIWIBES_VERSION         "0.9.0"
 #define KIWIBES_COPYRIGHT_YEARS "2018"
 
-/** The Kiwibes server
+/** The Kiwibes servers:
+  - the automation server
+  - the REST HTTP  server
  */
-static std::unique_ptr<Kiwibes> server;
+static std::unique_ptr<Kiwibes>         kwbServer;
+static std::unique_ptr<httplib::Server> restHTTP;
 
 /*--------------------------Private Function Declarations -------------------------------*/
 /** Show the copyright information
@@ -103,13 +107,26 @@ static void post_delete_job(const httplib::Request& req, httplib::Response& res)
  */
 static void get_get_job(const httplib::Request& req, httplib::Response& res);
 
-
 /** REST: List the name of all jobs
 
   @param req  the incoming HTTP request
   @param res  the outgoing HTTP response
  */
 static void get_list_jobs(const httplib::Request& req, httplib::Response& res);
+
+/** REST: Requests logger
+
+  @param req  the incoming HTTP request
+  @param res  the outgoing HTTP response
+ */
+static void restHTTPLogger(const httplib::Request& req, const httplib::Response& res);
+
+/** REST: Error handler
+
+  @param req  the incoming HTTP request
+  @param res  the outgoing HTTP response
+ */
+static void restHTTPErrorHandler(const httplib::Request& req, httplib::Response& res);
 
 /*--------------------------Public Function Definitions -------------------------------*/
 
@@ -135,26 +152,30 @@ int main(int argc, char **argv)
 
 	show_copyright();
 
-	server.reset(new Kiwibes);
-  error = server->init(argc,argv);
+  restHTTP.reset(new httplib::Server);
+	kwbServer.reset(new Kiwibes);
+  error = kwbServer->init(argc,argv);
 
 	if(ERROR_NO_ERROR == error)
   {
     /* setup the HTTP REST server and run it */
-    httplib::Server rest;
+    restHTTP->Post("/start_job/([a-zA-Z_0-9]+)",post_start_job);
+    restHTTP->Post("/stop_job/([a-zA-Z_0-9]+)",post_stop_job);
+    restHTTP->Post("/create_job/([a-zA-Z_0-9]+)",post_create_job);    
+    restHTTP->Post("/edit_job/([a-zA-Z_0-9]+)",post_edit_job);    
+    restHTTP->Post("/delete_job/([a-zA-Z_0-9]+)",post_delete_job);    
+    restHTTP->Get("/jobs_list",get_list_jobs);
+    restHTTP->Get("/job/([a-zA-Z_0-9]+)",get_get_job);    
 
-    rest.Post("/start/([a-zA-Z_0-9]+)",post_start_job);
-    rest.Post("/stop/([a-zA-Z_0-9]+)",post_stop_job);
-    rest.Post("/create/([a-zA-Z_0-9]+)",post_create_job);    
-    rest.Post("/edit/([a-zA-Z_0-9]+)",post_edit_job);    
-    rest.Post("/delete/([a-zA-Z_0-9]+)",post_delete_job);    
-    rest.Get("/list",get_list_jobs);
-    rest.Get("/job/([a-zA-Z_0-9]+)",get_get_job);    
+    /* setup the logger and the error handler */
+    restHTTP->set_logger(restHTTPLogger);
+    restHTTP->set_error_handler(restHTTPErrorHandler);
 
+    /* start listening for incoming requests */
     std::cout << "Listening on the REST interface" << std::endl;
     LOG_INFO << "Listening on the REST interface";
     
-    rest.listen("localhost",server->get_listening_port());   
+    restHTTP->listen("localhost",kwbServer->get_listening_port());   
   }
   
   return error;
@@ -171,40 +192,51 @@ static void show_copyright(void)
 
 static void signal_handler(int sig)
 {
-  exit(ERROR_FAIL_INTERRUPTED);
+  restHTTP->stop();
+  exit(ERROR_MAIN_INTERRUPTED);
 }
 
 static void post_start_job(const httplib::Request& req, httplib::Response& res)
 {
-  server->post_start_job(req,res);
+  kwbServer->post_start_job(req,res);
 }
 
 static void post_stop_job(const httplib::Request& req, httplib::Response& res)
 {
-  server->post_stop_job(req,res);
+  kwbServer->post_stop_job(req,res);
 }
 
 static void post_create_job(const httplib::Request& req, httplib::Response& res)
 {
-  server->post_create_job(req,res);
+  kwbServer->post_create_job(req,res);
 }
 
 static void post_edit_job(const httplib::Request& req, httplib::Response& res)
 {
-  server->post_edit_job(req,res);
+  kwbServer->post_edit_job(req,res);
 }
 
 static void post_delete_job(const httplib::Request& req, httplib::Response& res)
 {
-  server->post_edit_job(req,res);
+  kwbServer->post_edit_job(req,res);
 }
 
 static void get_get_job(const httplib::Request& req, httplib::Response& res)
 {
-  server->get_get_job(req,res);
+  kwbServer->get_get_job(req,res);
 }
 
 static void get_list_jobs(const httplib::Request& req, httplib::Response& res)
 {
-  server->get_list_jobs(req,res);
+  kwbServer->get_list_jobs(req,res);
+}
+
+static void restHTTPLogger(const httplib::Request& req, const httplib::Response& res)
+{
+  LOG_INFO << req.method.c_str() << " - " << req.path.c_str();
+}
+
+static void restHTTPErrorHandler(const httplib::Request& req, httplib::Response& res)
+{
+  res.set_content("<p>ERROR</p>","text/html");
 }

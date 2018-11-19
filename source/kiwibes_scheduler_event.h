@@ -28,7 +28,7 @@
 #define __KIWIBES_SCHEDULER_EVENT_H__
 
 #include <chrono>
-#include <memory>
+#include <string>
 
 /** Type of events possible 
  */
@@ -36,7 +36,7 @@ typedef enum {
   EVENT_START_JOB,        /* start a job and re-schedule it again */
   EVENT_STOP_JOB,         /* do not start the job and do not schedule it again */
   EVENT_EXIT_SCHEDULER,   /* exit from the scheduler thread */
-} EventType_T;
+} T_EVENT_TYPE;
 
 
 class KiwibesSchedulerEvent {
@@ -44,15 +44,15 @@ class KiwibesSchedulerEvent {
 public:
   /** Class constructor
 
-    @param type     the type of event 
-    @param t0       the instant when the event occurs
-    @param payload  the event payload, can be nullptr
+    @param type       the type of event 
+    @param t0         the instant when the event occurs
+    @param job_name   the name of the job
    */
-  KiwibesSchedulerEvent(EventType_T type, std::time_t t0, const std::string &payload);    
-  
+  KiwibesSchedulerEvent(T_EVENT_TYPE type, std::time_t t0, const std::string &job_name);    
+
   /** Class destructor
    */
-  ~KiwibesSchedulerEvent();
+  ~KiwibesSchedulerEvent();    
 
  /** Ordering for events
 
@@ -64,9 +64,9 @@ public:
   bool operator<(const KiwibesSchedulerEvent &rhs);
 
 public:
- EventType_T type;                        /* type of event */
- std::time_t t0;                          /* instant in the future when the event occurs */   
- std::unique_ptr<std::string> job;        /* name of the job */   
+ T_EVENT_TYPE type;        /* type of event */
+ std::time_t  t0;          /* instant in the future when the event occurs */   
+ std::string  *job_name;   /* name of the job */   
 };
 
 #endif

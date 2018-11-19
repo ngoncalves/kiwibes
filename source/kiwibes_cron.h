@@ -22,49 +22,37 @@
   Summary
   -------
 
-  See the respective header file for details.
+  This class implements a wrapper around the Cron expression parser.
 */
-#include "kiwibes_cron_parser.h"
-#include "NanoLog/NanoLog.hpp"
+#ifndef __KIWIBES_CRON_H__
+#define __KIWIBES_CRON_H__
+
+#include <string>
+#include <memory>
 #include <chrono>
+#include "ccronexpr/ccronexpr.h"
 
-KiwibesCronParser::KiwibesCronParser(const std::string &expression)
-{
-  cron.reset(new cron_expr);
-  const char *error;
+class KiwibesCron {
 
-  cron_parse_expr(expression.c_str(),cron.get(),&error);
-          
-  if(NULL != error)
-  {
-    LOG_CRIT << "invalid Cron expression: '" << expression << "', error: " << error;
-    valid = false;
-  }
-  else
-  {
-    valid = true;
-  }
-}
+public:
+  /** Class constructor
 
-KiwibesCronParser::~KiwibesCronParser()
-{
-  /* nothing to do */ 
-}
+    @param  expression  string with the Cron expression
+   */
+  KiwibesCron(const std::string &expression);
 
-bool KiwibesCronParser::is_valid(void)
-{
-  return valid;
-}
+  /** Return true if the expression is valid, false otherwise.
+   */
+  bool is_valid(void);
 
-std::time_t KiwibesCronParser::next(void)
-{
-  if(true == valid)
-  {
-    std::time_t now  = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-    return cron_next(cron.get(),now);
-  }
-  else
-  {
-    return 0;
-  }
-}
+  /** Return the instant of the next occurrence for the Cron expression.
+      If the expression in the constructor is invalid, it returns 0.
+   */
+  std::time_t next(void);
+
+private:
+  std::unique_ptr<cron_expr> cron;    /* cron expression */
+  bool                       valid;   /* true if the expression is valid, false otherwise */
+};
+
+#endif

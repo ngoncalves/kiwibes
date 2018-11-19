@@ -62,9 +62,9 @@ public:
   /** Schedule a job to run periodically
 
     @param name   name of the job
-    @return true if successfull, false otherwise
+    @return ERROR_NO_ERROR if successfull, error code otherwise
    */
-  bool schedule_job(const std::string &name);
+  T_KIWIBES_ERROR schedule_job(const std::string &name);
 
   /** Stop a job from running periodically.
 

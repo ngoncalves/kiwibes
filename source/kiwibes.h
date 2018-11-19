@@ -34,14 +34,6 @@
 #include "kiwibes_scheduler.h"
 #include "kiwibes_jobs_manager.h"
 
-/*--------- Exit Error Conditions -------------------------------- */
-#define ERROR_NO_ERROR             0   /* failed to load the jobs descriptions */
-#define ERROR_FAIL_JOB_LOAD        1   /* failed to load the jobs descriptions */
-#define ERROR_FAIL_CMD_LINE_PARSE  2   /* failed to parse the command line */
-#define ERROR_FAIL_HOME_SETUP      3   /* failed to setup the home folder */
-#define ERROR_FAIL_LOAD_DATABASE   4   /* failed to load the database */ 
-#define ERROR_FAIL_INTERRUPTED     5   /* caught CTRL-C */ 
-
 /*--------- Kiwibes Server Class -------------------------------- */
 
 class Kiwibes : public httplib::Server {

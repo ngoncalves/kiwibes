@@ -34,7 +34,7 @@ LIBS   := -pthread
 # Build Tools
 #----------------------------------------------------------------------------
 CC     := g++ 
-CFLAGS := -g -std=c++11 -Wall -Werror -O2 -I $(INCS)
+CFLAGS := -std=c++11 -Wall -Werror -O2 -I $(INCS)
 
 BIN     := $(BUILD)/kiwibes
 SOURCES := $(wildcard $(SOURCE)/*.cpp)
