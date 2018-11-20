@@ -87,9 +87,9 @@ unsigned int Kiwibes::get_listening_port(void)
   return cmd_line[KWB_OPT_HTTP_PORT].value;
 }
 
-int Kiwibes::init(int argc,char **argv)
+T_KIWIBES_ERROR Kiwibes::init(int argc,char **argv)
 {
-  int error = ERROR_NO_ERROR;
+  T_KIWIBES_ERROR error = ERROR_NO_ERROR;
 
   std::cout << "[INFO] initialization of the Kiwibes server" << std::endl;
 
@@ -106,11 +106,12 @@ int Kiwibes::init(int argc,char **argv)
   {
     /* initialize the database and the scheduler */
     LOG_INFO << "loading the jobs database";
-    error = database->load(*(home) + std::string("/kiwibes.json"));
+    error = database->load(*(home) + std::string("kiwibes.json"));
 
     if(ERROR_NO_ERROR != error)
     {
       LOG_CRIT << "failed to load the database, exiting";
+      std::cout << "[ERROR] failed to load the database, exiting" << std::endl;
     }
   }
 
@@ -136,9 +137,9 @@ int Kiwibes::init(int argc,char **argv)
   return error;
 }
 
-int Kiwibes::parse_cmd_line(int argc,char **argv)  
+T_KIWIBES_ERROR Kiwibes::parse_cmd_line(int argc,char **argv)  
 {
-  int error = ERROR_NO_ERROR;
+  T_KIWIBES_ERROR error = ERROR_NO_ERROR;
 
   if(2 > argc)
   {
@@ -147,6 +148,7 @@ int Kiwibes::parse_cmd_line(int argc,char **argv)
   }
   else
   {
+    /* get the path to the home folder, making sure it ends in an "/" */
     home.reset(new std::string(argv[1]));
     
     for(int a = 2; a < argc; a++)
@@ -175,29 +177,18 @@ int Kiwibes::parse_cmd_line(int argc,char **argv)
   return error;
 }
 
-int Kiwibes::setup_home(void)
+T_KIWIBES_ERROR Kiwibes::setup_home(void)
 {
-  int error = ERROR_NO_ERROR;
+  T_KIWIBES_ERROR error = ERROR_NO_ERROR;
 
   /* create the home folder, if it does not exist */  
   struct stat path;
     
   if(0 != stat(home->c_str(),&path))
   {
-    /* folder does not exist, create it with the permissions:
-      - read, write and execute by the owner
-      - read and execute by the group
-      - read and execute by others 
-    */
-    if(0 != mkdir(home->c_str(),S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH))
-    {
-      std::cout << "[ERROR] failed to create folder: " << *home << std::endl;
-      error = ERROR_HOME_SETUP;
-    }
-    else
-    {
-      std::cout << "[INFO] created folder: " << *home << std::endl;  
-    }
+    std::cout << "[ERROR] home folder does not exist: " << *home << std::endl;
+    LOG_CRIT  << "home folder does not exist: " << *home;
+    error = ERROR_HOME_SETUP;
   }
 
   if(ERROR_NO_ERROR == error)

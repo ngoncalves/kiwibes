@@ -58,7 +58,7 @@ public:
     the logger and loads the jobs descriptions. It then schedules
     the jobs that must run periodically.
   */
-  int init(int argc,char **argv);
+  T_KIWIBES_ERROR init(int argc,char **argv);
 
   /** Return the listening port for the REST interface
     */
@@ -118,20 +118,11 @@ private:
    */
   void show_help(void);
 
-  /** Setup the home folder and start the logging system
+  /** Verify the home folder exists and start logging
 
     @returns ERROR_NO_ERROR if successfull, error code otherwise
-
-    It creates the home folder:
-      $HOME$/.kiwibes       if running in Linux
-      $APPDATA$/kiwibes     if running in Windows
-
-    where $HOME$ is the user home folder in Linux and
-    $APPDATA$ is the user AppData folder in Windows.
-
-    The Kiwibes server activity logs are written in the application home folder.
    */
-  int setup_home(void);
+  T_KIWIBES_ERROR setup_home(void);
   
   /** Parse the command line arguments
 
@@ -140,7 +131,7 @@ private:
     @param argc   number of command line input arguments
     @param argv   array of command line input arguments
    */
-  int parse_cmd_line(int argc, char **argv);
+  T_KIWIBES_ERROR parse_cmd_line(int argc, char **argv);
 
 private:
   std::unique_ptr<KiwibesDatabase>    database;   /* contains all information about jobs and the server */
