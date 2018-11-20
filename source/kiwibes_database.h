@@ -47,13 +47,10 @@ public:
 
   /** Load the job descriptions to memory
 
-    The database is the JSON file "kiwibes.json" located in
-    the home folder. 
-
-    @param home  full path to the folder containing the database
+    @param fname  full path to the JSON file containing the database
     @return ERROR_NO_ERROR if successfull, error code otherwise
   */
-  T_KIWIBES_ERROR load(const std::string &home);
+  T_KIWIBES_ERROR load(const std::string &fname);
 
   /** Save the job descriptions to file
 

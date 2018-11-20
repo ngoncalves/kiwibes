@@ -1,0 +1,29 @@
+{
+	"job 1" : {
+		"program" : [ "/usr/bin/ls",
+					  "-hal"
+					],
+		"max-runtime" : 10.0,
+		"avg-runtime" : 0.0,
+		"var-runtime" : 0.0,
+		"schedule"    : "",
+		"status"      : "",
+		"start-time"  : 0,
+		"nbr-runs"    : 0				
+	},
+	
+	"job 2" : {
+		"program" : [ "/usr/bin/ls",
+					  "-h",
+					  "-a",
+					  "-l"
+					],
+		"max-runtime" : 10.0,
+		"avg-runtime" : 0.0,
+		"var-runtime" : 0.0,
+		"schedule"    : "",
+		"status"      : "",
+		"start-time"  : 0,
+		"nbr-runs"    : 0				
+	}
+}

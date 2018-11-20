@@ -1,0 +1,9 @@
+{
+	"job incomplete" : {
+		"program" : [ "/usr/bin/ls",
+					  "-hal"
+					],
+		"max-runtime" : 10.0,
+		"nbr-runs"    : 0				
+	}
+}

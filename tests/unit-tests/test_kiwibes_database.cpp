@@ -24,11 +24,61 @@
 #include "unit_tests.h"
 #include "kiwibes_database.h"
 
+#include <vector>
+#include <string>
+
 /*----------------------- Public Functions Definitions ------------*/
+void test_database_constructor(void)
+{
+  KiwibesDatabase database; 
+  std::vector<std::string> job_names;
+
+  /* start with an empty list of jobs */
+  database.get_all_job_names(job_names);
+  ASSERT(0 == job_names.size());
+}
+
+void test_database_load_errors(void)
+{
+  KiwibesDatabase database; 
+  std::vector<std::string> job_names;
+
+  /* attempt to load from a location where there is no database */
+  ASSERT(ERROR_NO_DATABASE_FILE == database.load("/nowhere/noplace/does/no/exist_db.json"));
+
+  database.get_all_job_names(job_names);
+  ASSERT(0 == job_names.size());
+
+  /* attempt to load from a database with JSON syntax errrors */
+  ASSERT(ERROR_JSON_PARSE_FAIL == database.load("../tests/data/databases/syntax_error.json"));
+
+  database.get_all_job_names(job_names);
+  ASSERT(0 == job_names.size());
+
+  /* attempt to load from a database with where a job has not all data */
+  ASSERT(ERROR_JOB_DESCRIPTION_INVALID == database.load("../tests/data/databases/job_incomplete_data.json"));
+
+  database.get_all_job_names(job_names);
+  ASSERT(0 == job_names.size());
+}
+
 void test_database_load(void)
 {
   KiwibesDatabase database; 
+  std::vector<std::string> job_names;
 
-  /* attempt to load from a location where there is no database */
-  ASSERT(ERROR_NO_DATABASE_FILE == database.load("/nowhere/noplace/does/no/exist"));
+  /* load from an empty database is OK */
+  ASSERT(ERROR_NO_ERROR == database.load("../tests/data/databases/empty_db.json"));
+
+  database.get_all_job_names(job_names);
+  ASSERT(0 == job_names.size());
+
+  /* load two jobs */
+  ASSERT(ERROR_NO_ERROR == database.load("../tests/data/databases/two_jobs.json"));
+
+  database.get_all_job_names(job_names);
+
+  std::vector<std::string> expected_names = { "job 1", "job 2"};
+
+  ASSERT(expected_names == job_names);
 }

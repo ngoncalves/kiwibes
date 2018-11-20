@@ -106,7 +106,7 @@ int Kiwibes::init(int argc,char **argv)
   {
     /* initialize the database and the scheduler */
     LOG_INFO << "loading the jobs database";
-    error = database->load(*(home));
+    error = database->load(*(home) + std::string("/kiwibes.json"));
 
     if(ERROR_NO_ERROR != error)
     {

@@ -54,6 +54,7 @@ kiwibes:
 ut-kiwibes:
 	python $(TESTS)/util/generate_ut.py Kiwibes $(TESTS)/unit-tests
 	make -C $(TESTS)/unit-tests
+	make -C $(TESTS)/unit-tests run
 
 .PHONY: clean
 

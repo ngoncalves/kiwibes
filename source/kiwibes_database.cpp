@@ -36,17 +36,17 @@
 
 KiwibesDatabase::KiwibesDatabase()
 {
-  dbpath.reset(nullptr);
-  dbjobs.reset(nullptr);
+  dbpath.reset(new std::string(""));
+  dbjobs.reset(new nlohmann::json);
 }
 
-T_KIWIBES_ERROR KiwibesDatabase::load(const std::string &home)
+T_KIWIBES_ERROR KiwibesDatabase::load(const std::string &fname)
 { 
   std::lock_guard<std::mutex> lock(dblock);
 
   T_KIWIBES_ERROR error = ERROR_NO_ERROR;
 
-  dbpath.reset(new std::string(std::string(home) + std::string("/kiwibes.json")));
+  dbpath.reset(new std::string(fname));
   dbjobs.reset(new nlohmann::json);
 
   std::ifstream dbfile((*dbpath));
@@ -96,6 +96,12 @@ T_KIWIBES_ERROR KiwibesDatabase::load(const std::string &home)
     LOG_WARN << "could not open the JSON file: " << (*dbpath);
     LOG_WARN << "database of jobs is empty";
     error = ERROR_NO_DATABASE_FILE;
+  }
+
+  /* in case of errors, reset the database contents */
+  if(ERROR_NO_ERROR != error)
+  {
+    dbjobs.reset(new nlohmann::json);
   }
 
   return error; 

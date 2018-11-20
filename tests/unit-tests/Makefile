@@ -43,7 +43,7 @@ LDFLAGS  := -pthread
 #----------------------------------------------------------------------------
 # Build Tools
 #----------------------------------------------------------------------------
-BIN     := $(BUILD)/ut-kiwibes
+BINARY  := ut-kiwibes
 SOURCES := $(wildcard $(SOURCE)/*.cpp)
 OBJECTS := $(patsubst $(SOURCE)/%.cpp,$(BUILD)/%.o,$(SOURCES))
 
@@ -63,14 +63,13 @@ OBJECTS_3RD_PARTY := $(BUILD)/NanoLog.o \
 # Kiwibes Unit Tests Target
 #----------------------------------------------------------------------------
 
-all: $(BIN)
+all: $(BUILD)/$(BINARY)
 
-$(BIN): $(OBJECTS) $(OBJECTS_TEST) $(OBJECTS_3RD_PARTY)
+$(BUILD)/$(BINARY): $(OBJECTS) $(OBJECTS_TEST) $(OBJECTS_3RD_PARTY)
 	@echo '================================================================'
 	@echo 'Building the Unit Tests for the Kiwibes Automation Server       '
 	@echo '================================================================'
-	$(CC) $(LDFLAGS) $(OBJECTS) $(OBJECTS_TEST) $(OBJECTS_3RD_PARTY) -o $@ 
-	-$(BIN)  
+	$(CC) $(LDFLAGS) $(OBJECTS) $(OBJECTS_TEST) $(OBJECTS_3RD_PARTY) -o $@  
 
 $(BUILD)/%.o: $(SOURCE)/%.cpp
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -83,5 +82,8 @@ $(BUILD)/%.o: $(SOURCE_3RD_PARTY)/NanoLog/%.cpp
 
 $(BUILD)/%.o: $(SOURCE_3RD_PARTY)/ccronexpr/%.c
 	$(CC) $(CFLAGS) -c -o $@ $<
+
+run: $(BUILD)/$(BINARY)
+	-cd $(BUILD); pwd; ./$(BINARY)
 
 print-%  : ; @echo $* = $($*)
