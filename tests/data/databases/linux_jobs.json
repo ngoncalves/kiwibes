@@ -1,0 +1,34 @@
+{
+	"sleep 2" : {
+		"program"     : [ "/bin/sleep", "2" ],
+		"max-runtime" : 4,
+		"avg-runtime" : 0.0,
+		"var-runtime" : 0.0,
+		"schedule"    : "",
+		"status"      : "stopped",
+		"start-time"  : 0,
+		"nbr-runs"    : 0				
+	},
+
+	"sleep 20" : {
+		"program"     : [ "/bin/sleep", "20" ],
+		"max-runtime" : 22,
+		"avg-runtime" : 0.0,
+		"var-runtime" : 0.0,
+		"schedule"    : "",
+		"status"      : "stopped",
+		"start-time"  : 0,
+		"nbr-runs"    : 0				
+	},
+
+	"sleep 10" : {
+		"program"     : [ "/bin/sleep", "10" ],
+		"max-runtime" : 22,
+		"avg-runtime" : 0.0,
+		"var-runtime" : 0.0,
+		"schedule"    : "",
+		"status"      : "stopped",
+		"start-time"  : 0,
+		"nbr-runs"    : 0				
+	}
+}

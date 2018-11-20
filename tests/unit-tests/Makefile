@@ -49,7 +49,8 @@ OBJECTS := $(patsubst $(SOURCE)/%.cpp,$(BUILD)/%.o,$(SOURCES))
 
 SOURCES_TEST := $(SOURCE_TEST)/kiwibes_cron.cpp \
 				$(SOURCE_TEST)/kiwibes_scheduler_event.cpp \
-				$(SOURCE_TEST)/kiwibes_database.cpp
+				$(SOURCE_TEST)/kiwibes_database.cpp \
+				$(SOURCE_TEST)/kiwibes_jobs_manager.cpp
 
 OBJECTS_TEST := $(patsubst $(SOURCE_TEST)/%.cpp,$(BUILD)/%.o,$(SOURCES_TEST))
 

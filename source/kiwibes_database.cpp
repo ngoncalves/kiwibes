@@ -144,8 +144,6 @@ T_KIWIBES_ERROR KiwibesDatabase::job_started(const std::string &name)
 
     (*dbjobs)[name]["status"]     = "running";
     (*dbjobs)[name]["start-time"] = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-
-    unsafe_save();
   }
 
   return error; 
@@ -186,8 +184,6 @@ T_KIWIBES_ERROR KiwibesDatabase::job_stopped(const std::string &name)
     (*dbjobs)[name]["avg-runtime"] = avg;
     (*dbjobs)[name]["var-runtime"] = var;
     (*dbjobs)[name]["nbr-runs"]    = runs;
-
-    unsafe_save();
   }
 
   return error;

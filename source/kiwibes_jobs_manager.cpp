@@ -181,12 +181,7 @@ T_PROCESS_HANDLER KiwibesJobsManager::launch_job(nlohmann::json &job)
     /* should not reach here */
     return INVALID_PROCESS_HANDLE;
   }
-  else if(0 < handle)
-  {
-    /* parent process, begin monitoring the job */
-    database->job_started(job["name"].get<std::string>());
-  }
-  else    
+  else if(0 > handle)    
   {
     /* an error occurred */
     LOG_CRIT << "Failed to fork new process(" << errno << "): "<< strerror(errno);
