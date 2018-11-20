@@ -58,11 +58,11 @@ namespace
 	os << '[' << buffer << microseconds << ']';
     }
 
-    std::thread::id this_thread_id()
+    /*std::thread::id this_thread_id()
     {
 	static thread_local const std::thread::id id = std::this_thread::get_id();
 	return id;
-    }
+    }*/
 
     template < typename T, typename Tuple >
     struct TupleIndex;
@@ -119,7 +119,7 @@ namespace nanolog
 	, m_buffer_size(sizeof(m_stack_buffer))
     {
 	encode < uint64_t >(timestamp_now());
-	encode < std::thread::id >(this_thread_id());
+	//encode < std::thread::id >(this_thread_id());
 	encode < string_literal_t >(string_literal_t(file));
 	encode < string_literal_t >(string_literal_t(function));
 	encode < uint32_t >(line);
@@ -133,7 +133,7 @@ namespace nanolog
 	char * b = !m_heap_buffer ? m_stack_buffer : m_heap_buffer.get();
 	char const * const end = b + m_bytes_used;
 	uint64_t timestamp = *reinterpret_cast < uint64_t * >(b); b += sizeof(uint64_t);
-	std::thread::id threadid = *reinterpret_cast < std::thread::id * >(b); b += sizeof(std::thread::id);
+	//std::thread::id threadid = *reinterpret_cast < std::thread::id * >(b); b += sizeof(std::thread::id);
 	string_literal_t file = *reinterpret_cast < string_literal_t * >(b); b += sizeof(string_literal_t);
 	string_literal_t function = *reinterpret_cast < string_literal_t * >(b); b += sizeof(string_literal_t);
 	uint32_t line = *reinterpret_cast < uint32_t * >(b); b += sizeof(uint32_t);
@@ -142,7 +142,7 @@ namespace nanolog
 	format_timestamp(os, timestamp);
 
 	os << '[' << to_string(loglevel) << ']'
-	   << '[' << threadid << ']'
+	   //<< '[' << threadid << ']'
 	   << '[' << file.m_s << ':' << function.m_s << ':' << line << "] ";
 
 	stringify(os, b, end);
