@@ -95,6 +95,7 @@ T_KIWIBES_ERROR KiwibesDatabase::load(const std::string &home)
   {
     LOG_WARN << "could not open the JSON file: " << (*dbpath);
     LOG_WARN << "database of jobs is empty";
+    error = ERROR_NO_DATABASE_FILE;
   }
 
   return error; 

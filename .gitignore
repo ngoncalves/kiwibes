@@ -1,3 +1,5 @@
 build/
 releases/
 tests/temp/
+tests/source/main.cpp
+tests/source/ut_declarations.h

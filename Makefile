@@ -42,17 +42,18 @@ all: help
 help:
 	@echo '--------------------------------------------------------------------------'
 	@echo 'Available targets:'
-	@echo '  kiwibes      : build the Kiwibes Automation Server'
-	@echo '  ut-kiwibes   : build and run the unit-tests for the Kiwibes'
-	@echo '  clean        : clear the build directory'
-	@echo '  help         : this text'
+	@echo '  kiwibes      	: build the Kiwibes Automation Server'
+	@echo '  ut-kiwibes   	: build and run the unit-tests for the Kiwibes'
+	@echo '  clean        	: clear the build directory'
+	@echo '  help         	: this text'
 	@echo '--------------------------------------------------------------------------'
 
 kiwibes:
 	make -C $(SOURCE)/
 
 ut-kiwibes:
-	make -C $(TESTS)/
+	python $(TESTS)/util/generate_ut.py Kiwibes $(TESTS)/unit-tests
+	make -C $(TESTS)/unit-tests
 
 .PHONY: clean
 
@@ -61,3 +62,5 @@ clean:
 	@echo ' Cleaning the previous builds               '
 	@echo '============================================'
 	-rm -rf $(BUILD)/*
+	-rm -rf $(TESTS)/unit-tests/main.cpp
+	-rm -rf $(TESTS)/unit-tests/ut_declarations.h

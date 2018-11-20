@@ -31,14 +31,12 @@ typedef enum{
   ERROR_NO_ERROR,                 /* not error */
   ERROR_CMD_LINE_PARSE,           /* failed to parse the command line */
   ERROR_HOME_SETUP,               /* failed to setup the home folder */
-  ERROR_LOAD_DATABASE,            /* failed to load the database */ 
+  ERROR_NO_DATABASE_FILE,         /* the database file does not exist */ 
   ERROR_JSON_PARSE_FAIL,          /* failed to parse the JSON database file */ 
   ERROR_MAIN_INTERRUPTED,         /* caught CTRL-C */ 
   ERROR_JOB_NAME_UNKNOWN,         /* unknown job name */
   ERROR_JOB_NAME_TAKEN,           /* the job name is already taken */ 
   ERROR_JOB_DESCRIPTION_INVALID,  /* the job JSON description is invalid */
-  ERROR_JOB_NOT_STARTED,          /* failed to start the job */
-  ERROR_JOB_NOT_STOPPED,          /* failed to stop the job */
   ERROR_EMPTY_REST_REQUEST,       /* REST request data is empty */
   ERROR_JOB_IS_RUNNING,           /* job is running */
   ERROR_JOB_IS_NOT_RUNNING,       /* job is running */

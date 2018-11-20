@@ -1,12 +1,10 @@
-/**
-  Kiwibes Automation Server
-  =========================
+/* Kiwibes Automation Server Unit Tests
+  =====================================
   Copyright 2018, Nelson Filipe Ferreira Goncalves
   nelsongoncalves@patois.eu
 
   License
   -------
-
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
@@ -18,28 +16,19 @@
   GNU General Public License for more details. You should have received
   a copy of the GNU General Public License along with this program.
   If not, see <http://www.gnu.org/licenses/>.
-
+   
   Summary
   -------
+  Implements the unit tests for the database.  
+ */
+#include "unit_tests.h"
+#include "kiwibes_database.h"
 
-  See the respective header file for details.
-*/
-#include "kiwibes_scheduler_event.h"
-#include "NanoLog/NanoLog.hpp"
-
-KiwibesSchedulerEvent::KiwibesSchedulerEvent(T_EVENT_TYPE type, std::time_t t0, const std::string &job_name)
+/*----------------------- Public Functions Definitions ------------*/
+void test_database_load(void)
 {
-  this->type = type;
-  this->t0   = t0;
-  this->job_name = new std::string(job_name);
-}
+  KiwibesDatabase database; 
 
-KiwibesSchedulerEvent::~KiwibesSchedulerEvent()
-{
-  delete job_name;
-}
-
-bool KiwibesSchedulerEvent::operator<(const KiwibesSchedulerEvent &rhs)
-{
-  return (t0 < rhs.t0); 
+  /* attempt to load from a location where there is no database */
+  ASSERT(ERROR_NO_DATABASE_FILE == database.load("/nowhere/noplace/does/no/exist"));
 }

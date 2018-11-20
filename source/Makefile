@@ -33,8 +33,9 @@ LIBS   := -pthread
 #----------------------------------------------------------------------------
 # Build Tools
 #----------------------------------------------------------------------------
-CC     := g++ 
-CFLAGS := -std=c++11 -Wall -Werror -O2 -I $(INCS)
+CC      := g++ 
+OPTIONS := -DCRON_USE_LOCAL_TIME
+CFLAGS  := -std=c++11 -Wall -Werror -O2 $(OPTIONS) -I $(INCS) 
 
 BIN     := $(BUILD)/kiwibes
 SOURCES := $(wildcard $(SOURCE)/*.cpp)
