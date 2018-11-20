@@ -64,14 +64,16 @@ public:
   /** Update the job status to running
 
     @param name   the name of the job
-   */
-  void job_started(const std::string &name);
+    @return ERROR_NO_ERROR if successfull, error code otherwise
+  */
+  T_KIWIBES_ERROR job_started(const std::string &name);
 
   /** Update the job status to stopped
 
     @param name   the name of the job
-   */
-  void job_stopped(const std::string &name);
+    @return ERROR_NO_ERROR if successfull, error code otherwise
+  */
+  T_KIWIBES_ERROR job_stopped(const std::string &name);
 
   /** Return the names of the jobs that can be scheduled
 

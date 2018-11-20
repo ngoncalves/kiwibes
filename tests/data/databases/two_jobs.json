@@ -1,24 +1,18 @@
 {
 	"job 1" : {
-		"program" : [ "/usr/bin/ls",
-					  "-hal"
-					],
-		"max-runtime" : 10.0,
+		"program"     : [ "/usr/bin/ls", "-hal" ],
+		"max-runtime" : 10,
 		"avg-runtime" : 23.3456,
 		"var-runtime" : 0.123234,
 		"schedule"    : "",
 		"status"      : "running",
-		"start-time"  : 123453456,
+		"start-time"  : 123453,
 		"nbr-runs"    : 1				
 	},
 	
 	"job 2" : {
-		"program" : [ "/usr/bin/ls",
-					  "-h",
-					  "-a",
-					  "-l"
-					],
-		"max-runtime" : 10.0,
+		"program"     : [ "/usr/bin/ls", "-h", "-a", "-l" ],
+		"max-runtime" : 10,
 		"avg-runtime" : 2.45,
 		"var-runtime" : 0.123,
 		"schedule"    : "* * 5 * 5 *",

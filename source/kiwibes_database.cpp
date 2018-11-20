@@ -122,13 +122,21 @@ void KiwibesDatabase::unsafe_save(void)
   dbfile << std::setw(4) << (*dbjobs) << std::endl;
 }
 
-void KiwibesDatabase::job_started(const std::string &name)
+T_KIWIBES_ERROR KiwibesDatabase::job_started(const std::string &name)
 {
   std::lock_guard<std::mutex> lock(dblock);
+
+  T_KIWIBES_ERROR error = ERROR_NO_ERROR;
 
   if(0 == (*dbjobs).count(name))
   {
     LOG_CRIT << "could not find job '" << name << "'";
+    error = ERROR_JOB_NAME_UNKNOWN;
+  }
+  else if(std::string("running") == (*dbjobs)[name]["status"].get<std::string>())
+  {
+    LOG_WARN << "job '" << name << "' is already running, cannot start it again";
+    error = ERROR_JOB_IS_RUNNING;    
   }
   else
   {
@@ -139,17 +147,27 @@ void KiwibesDatabase::job_started(const std::string &name)
 
     unsafe_save();
   }
+
+  return error; 
 }
 
-void KiwibesDatabase::job_stopped(const std::string &name)
+T_KIWIBES_ERROR KiwibesDatabase::job_stopped(const std::string &name)
 {
   std::lock_guard<std::mutex> lock(dblock);
+
+  T_KIWIBES_ERROR error = ERROR_NO_ERROR;
 
   if(0 == (*dbjobs).count(name))
   {
     LOG_CRIT << "could not find job '" << name << "'";
+    error = ERROR_JOB_NAME_UNKNOWN;
   }
-  else
+  else if(std::string("stopped") == (*dbjobs)[name]["status"].get<std::string>())
+  {
+    LOG_WARN << "job '" << name << "' is already stopped, cannot stop it again";
+    error = ERROR_JOB_IS_NOT_RUNNING;    
+  }
+  else  
   {
     LOG_INFO << "has stopped, job '" << name << "'";
     std::time_t       now     = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
@@ -167,9 +185,12 @@ void KiwibesDatabase::job_stopped(const std::string &name)
     (*dbjobs)[name]["start-time"]  = 0;
     (*dbjobs)[name]["avg-runtime"] = avg;
     (*dbjobs)[name]["var-runtime"] = var;
+    (*dbjobs)[name]["nbr-runs"]    = runs;
 
     unsafe_save();
   }
+
+  return error;
 }
 
 void KiwibesDatabase::get_all_schedulable_jobs(std::vector<std::string> &jobs)
@@ -190,6 +211,8 @@ void KiwibesDatabase::get_all_schedulable_jobs(std::vector<std::string> &jobs)
 void KiwibesDatabase::get_all_job_names(std::vector<std::string> &jobs)
 {
   std::lock_guard<std::mutex> lock(dblock);
+
+  jobs.clear();
 
   for(nlohmann::json::iterator job = dbjobs->begin() ; job != dbjobs->end(); job++)
   {
@@ -227,13 +250,16 @@ T_KIWIBES_ERROR KiwibesDatabase::delete_job(const std::string &name)
   {
     error = ERROR_JOB_NAME_UNKNOWN;
   }
+  else if(std::string("running") == iter.value()["status"].get<std::string>())
+  {
+    error = ERROR_JOB_IS_RUNNING; 
+  }
   else
   {
     /* delete the job by patching the database */
-    nlohmann::json remove;
+    nlohmann::json remove = R"([ { "op": "remove", "path": ""} ])"_json;
 
-    remove["op"]   = "remove";
-    remove["path"] = std::string("/") + name;
+    remove[0]["path"] = std::string("/") + name;
 
     nlohmann::json *new_db = new nlohmann::json(dbjobs->patch(remove));
     dbjobs.reset(new_db);
@@ -298,6 +324,10 @@ T_KIWIBES_ERROR KiwibesDatabase::edit_job(const std::string &name, const nlohman
   {
     error = ERROR_JOB_NAME_UNKNOWN;
   }
+  else if(std::string("running") == iter.value()["status"].get<std::string>())
+  {
+    error = ERROR_JOB_IS_RUNNING; 
+  }  
   else
   {
     /* set the job details */
@@ -313,7 +343,7 @@ T_KIWIBES_ERROR KiwibesDatabase::edit_job(const std::string &name, const nlohman
     
     if(1 == details.count("max-runtime"))
     {
-      (*dbjobs)[name]["max-runtime"] = details["max-runtime"].get<std::string>();   
+      (*dbjobs)[name]["max-runtime"] = details["max-runtime"].get<unsigned long int>();   
     }
 
     unsafe_save();

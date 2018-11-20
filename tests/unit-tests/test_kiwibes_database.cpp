@@ -24,8 +24,14 @@
 #include "unit_tests.h"
 #include "kiwibes_database.h"
 
+#include "nlohmann/json.h"
+
 #include <vector>
 #include <string>
+#include <iostream>
+#include <fstream>
+#include <chrono>
+#include <thread>
 
 /*----------------------- Public Functions Definitions ------------*/
 void test_database_constructor(void)
@@ -81,4 +87,534 @@ void test_database_load(void)
   std::vector<std::string> expected_names = { "job 1", "job 2"};
 
   ASSERT(expected_names == job_names);
+}
+
+void test_database_get_all_schedulable_jobs(void)
+{
+  KiwibesDatabase database; 
+  std::vector<std::string> all_jobs;
+  std::vector<std::string> schedulable_jobs;
+
+  /* load two jobs */
+  ASSERT(ERROR_NO_ERROR == database.load("../tests/data/databases/two_jobs.json"));
+
+  database.get_all_job_names(all_jobs);
+  database.get_all_schedulable_jobs(schedulable_jobs);
+
+  std::vector<std::string> expected_all_jobs = { "job 1", "job 2"};
+  std::vector<std::string> expected_schedulable_jobs = { "job 2"};
+
+  ASSERT(expected_all_jobs == all_jobs);
+  ASSERT(expected_schedulable_jobs == schedulable_jobs);
+}
+
+void test_database_get_job_description(void)
+{
+  KiwibesDatabase database; 
+  nlohmann::json job;
+
+  /* in case of an empty database, or an error while loading 
+     the database, there should be no jobs 
+   */
+  const char *bad_database[] = {
+    "../tests/data/databases/empty_db.json",
+    "../tests/data/databases/syntax_error.json",
+    "../tests/data/databases/job_incomplete_data.json",
+  };
+
+  for(unsigned int d = 0; d < sizeof(bad_database)/sizeof(const char *); d++)
+  {
+    database.load(bad_database[d]);  
+    ASSERT(ERROR_JOB_NAME_UNKNOWN == database.get_job_description(job,"my job"));
+  }
+
+  /* load a valid database and retrieve:
+      - a job with an unknown name 
+      - the two jobs in the database 
+   */
+  ASSERT(ERROR_NO_ERROR == database.load("../tests/data/databases/two_jobs.json"));
+
+  ASSERT(ERROR_JOB_NAME_UNKNOWN == database.get_job_description(job,"my job"));
+
+  /* "job 1" exists, verify it is correctly read out */
+  std::vector<std::string> expected_program = { "/usr/bin/ls", "-hal"};
+
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job 1"));
+
+  ASSERT(10                     == job["max-runtime"].get<unsigned long int>()); 
+  ASSERT(23.3456                == job["avg-runtime"].get<double>()); 
+  ASSERT(0.123234               == job["var-runtime"].get<double>()); 
+  ASSERT(std::string("")        == job["schedule"].get<std::string>()); 
+  ASSERT(1                      == job["nbr-runs"].get<unsigned long int>()); 
+  ASSERT(expected_program       == job["program"].get<std::vector<std::string> >()); 
+
+  /* these two fields are reseted when first loading a database, for all jobs */ 
+  ASSERT(std::string("stopped") == job["status"].get<std::string>());
+  ASSERT(0                      == job["start-time"].get<std::time_t>()); 
+
+  /* "job 2" exists, verify it is correctly read out */
+  expected_program = { "/usr/bin/ls", "-h","-a","-l"};
+
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job 2"));
+
+  ASSERT(10                         == job["max-runtime"].get<unsigned long int>()); 
+  ASSERT(2.45                       == job["avg-runtime"].get<double>()); 
+  ASSERT(0.123                      == job["var-runtime"].get<double>()); 
+  ASSERT(std::string("* * 5 * 5 *") == job["schedule"].get<std::string>()); 
+  ASSERT(50                         == job["nbr-runs"].get<unsigned long int>()); 
+  ASSERT(expected_program           == job["program"].get<std::vector<std::string> >()); 
+
+  /* these two fields are reseted when first loading a database, for all jobs */ 
+  ASSERT(std::string("stopped") == job["status"].get<std::string>());
+  ASSERT(0                      == job["start-time"].get<std::time_t>()); 
+}
+
+void test_database_job_started(void)
+{
+  KiwibesDatabase database; 
+  
+  /* in case of an empty database, or an error while loading 
+     the database, cannot start jobs 
+   */
+  const char *bad_database[] = {
+    "../tests/data/databases/empty_db.json",
+    "../tests/data/databases/syntax_error.json",
+    "../tests/data/databases/job_incomplete_data.json",
+  };
+
+  for(unsigned int d = 0; d < sizeof(bad_database)/sizeof(const char *); d++)
+  {
+    database.load(bad_database[d]);  
+    ASSERT(ERROR_JOB_NAME_UNKNOWN == database.job_started("my job"));
+  }
+
+  /* because all job changes are written to the database, we need to use
+     a copy of the original database 
+   */
+  {
+    std::ifstream src("../tests/data/databases/single_job.json");
+    std::ofstream dst("./single_job.json");
+
+    dst << src.rdbuf();
+  }
+
+  /* load a valid database and attempt to change the status of jobs */
+  ASSERT(ERROR_NO_ERROR == database.load("./single_job.json"));
+
+  /* job does not exist in a valid database */
+  ASSERT(ERROR_JOB_NAME_UNKNOWN == database.job_started("my job")); 
+
+  /* get the job properties before it started, and compare them 
+     after it was started 
+   */
+  nlohmann::json job;
+  std::vector<std::string> expected_program = { "/usr/bin/ls", "-hal"};
+
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job 1"));
+
+  ASSERT(10                     == job["max-runtime"].get<unsigned long int>()); 
+  ASSERT(0.0                    == job["avg-runtime"].get<double>()); 
+  ASSERT(0.0                    == job["var-runtime"].get<double>()); 
+  ASSERT(std::string("")        == job["schedule"].get<std::string>()); 
+  ASSERT(0                      == job["nbr-runs"].get<unsigned long int>()); 
+  ASSERT(expected_program       == job["program"].get<std::vector<std::string> >()); 
+  ASSERT(std::string("stopped") == job["status"].get<std::string>());
+  ASSERT(0                      == job["start-time"].get<std::time_t>());   
+
+  std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+
+  ASSERT(ERROR_NO_ERROR == database.job_started("job 1"));
+
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job 1"));
+
+  /* only these parameters change */
+  ASSERT(std::string("running") == job["status"].get<std::string>());
+  ASSERT(now                    == job["start-time"].get<std::time_t>());   
+
+  /* these parameters do not change */
+  ASSERT(10                     == job["max-runtime"].get<unsigned long int>()); 
+  ASSERT(0.0                    == job["avg-runtime"].get<double>()); 
+  ASSERT(0.0                    == job["var-runtime"].get<double>()); 
+  ASSERT(std::string("")        == job["schedule"].get<std::string>()); 
+  ASSERT(0                      == job["nbr-runs"].get<unsigned long int>()); 
+  ASSERT(expected_program       == job["program"].get<std::vector<std::string> >()); 
+
+  /* cannot start the job twice */
+  ASSERT(ERROR_JOB_IS_RUNNING == database.job_started("job 1"));
+}
+
+void test_database_job_stopped(void)
+{
+  KiwibesDatabase database; 
+  nlohmann::json  job;
+  std::time_t     now;
+  std::vector<std::string> expected_program = { "/usr/bin/ls", "-hal"};
+  
+  /* in case of an empty database, or an error while loading 
+     the database, cannot stop jobs 
+   */
+  const char *bad_database[] = {
+    "../tests/data/databases/empty_db.json",
+    "../tests/data/databases/syntax_error.json",
+    "../tests/data/databases/job_incomplete_data.json",
+  };
+
+  for(unsigned int d = 0; d < sizeof(bad_database)/sizeof(const char *); d++)
+  {
+    database.load(bad_database[d]);  
+    ASSERT(ERROR_JOB_NAME_UNKNOWN == database.job_stopped("my job"));
+  }
+
+  /* because all job changes are written to the database, we need to use
+     a copy of the original database 
+   */
+  {
+    std::ifstream src("../tests/data/databases/single_job.json");
+    std::ofstream dst("./single_job.json");
+
+    dst << src.rdbuf();
+  }
+
+  /* load a valid database and attempt to change the status of jobs */
+  ASSERT(ERROR_NO_ERROR == database.load("./single_job.json"));
+
+  /* job does not exist in a valid database ,cannot be stopped */
+  ASSERT(ERROR_JOB_NAME_UNKNOWN == database.job_stopped("my job")); 
+
+  /* start the job, get its properties and compare them to when the
+     job stops
+   */
+  now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+
+  ASSERT(ERROR_NO_ERROR == database.job_started("job 1"));
+  
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job 1"));
+
+  ASSERT(10                     == job["max-runtime"].get<unsigned long int>()); 
+  ASSERT(0.0                    == job["avg-runtime"].get<double>()); 
+  ASSERT(0.0                    == job["var-runtime"].get<double>()); 
+  ASSERT(std::string("")        == job["schedule"].get<std::string>()); 
+  ASSERT(0                      == job["nbr-runs"].get<unsigned long int>()); 
+  ASSERT(expected_program       == job["program"].get<std::vector<std::string> >()); 
+  ASSERT(std::string("running") == job["status"].get<std::string>());
+  ASSERT(now                    == job["start-time"].get<std::time_t>());   
+
+  std::this_thread::sleep_for(std::chrono::seconds(2));
+
+  ASSERT(ERROR_NO_ERROR == database.job_stopped("job 1"));
+
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job 1"));
+
+  /* these parameters do not change when starting/stopping jobs */
+  ASSERT(10                     == job["max-runtime"].get<unsigned long int>()); 
+  ASSERT(std::string("")        == job["schedule"].get<std::string>()); 
+  ASSERT(expected_program       == job["program"].get<std::vector<std::string> >()); 
+
+  /* these properties change after stopping the job. The average runtime is equal to
+     the sleep time and the variance is zero, because there is only one sample
+   */
+  ASSERT(std::string("stopped") == job["status"].get<std::string>());
+  ASSERT(0                      == job["start-time"].get<std::time_t>());   
+  ASSERT(1                      == job["nbr-runs"].get<unsigned long int>()); 
+  ASSERT(2.0                    == job["avg-runtime"].get<double>()); 
+  ASSERT(0.0                    == job["var-runtime"].get<double>()); 
+
+  /* cannot stop the job twice */
+  ASSERT(ERROR_JOB_IS_NOT_RUNNING == database.job_stopped("job 1"));
+}
+
+void test_database_delete_job(void)
+{
+  KiwibesDatabase database; 
+  nlohmann::json job; 
+  std::vector<std::string> names;
+
+  /* in case of an empty database, or an error while loading 
+     the database, cannot delete jobs 
+   */
+  const char *bad_database[] = {
+    "../tests/data/databases/empty_db.json",
+    "../tests/data/databases/syntax_error.json",
+    "../tests/data/databases/job_incomplete_data.json",
+  };
+
+  for(unsigned int d = 0; d < sizeof(bad_database)/sizeof(const char *); d++)
+  {
+    database.load(bad_database[d]);  
+    ASSERT(ERROR_JOB_NAME_UNKNOWN == database.delete_job("my job"));
+  }
+
+  /* because all job changes are written to the database, we need to use
+     a copy of the original database 
+   */
+  {
+    std::ifstream src("../tests/data/databases/single_job.json");
+    std::ofstream dst("./single_job.json");
+
+    dst << src.rdbuf();
+  }
+
+  /* load a valid database */
+  ASSERT(ERROR_NO_ERROR == database.load("./single_job.json"));
+
+  /* cannot delete a non-existing job */
+  ASSERT(ERROR_JOB_NAME_UNKNOWN == database.delete_job("my job"));
+
+  /* cannot delete a job that is running */
+  ASSERT(ERROR_NO_ERROR == database.job_started("job 1"));  
+  ASSERT(ERROR_JOB_IS_RUNNING == database.delete_job("job 1"));
+
+  /* delete the job and verify it cannot be retrieved afterwards */
+  ASSERT(ERROR_NO_ERROR == database.job_stopped("job 1"));
+  ASSERT(ERROR_NO_ERROR == database.delete_job("job 1"));  
+  ASSERT(ERROR_JOB_NAME_UNKNOWN == database.get_job_description(job,"job 1"));  
+
+  /* loading the database again, it is empty */
+  ASSERT(ERROR_NO_ERROR == database.load("./single_job.json"));
+   
+  database.get_all_job_names(names);
+  ASSERT(0 == names.size());
+}
+
+void test_database_create_job(void)
+{
+  KiwibesDatabase database; 
+  std::vector<std::string> expected_program = { "/usr/bin/ls"};
+  nlohmann::json job;
+
+  job["program"]     = expected_program;
+  job["schedule"]    = "1 2 3 4 5 6";
+  job["max-runtime"] = 9;
+
+  /* in case of an empty database, or an error while loading 
+     the database, it is possible to create jobs because the
+     database is empty. First the databases are copied because
+     changes to them are immediately saved
+   */
+  const char *bad_database[] = {
+    "empty_db.json",
+    "syntax_error.json",
+    "job_incomplete_data.json",
+  };
+
+  for(unsigned int d = 0; d < sizeof(bad_database)/sizeof(const char *); d++)  
+  {
+    nlohmann::json created_job;
+    std::vector<std::string> job_names; 
+
+    /* copy the original database */
+    {
+      std::ifstream src(std::string("../tests/data/databases/") + std::string(bad_database[d]));
+      std::ofstream dst(std::string("./") + std::string(bad_database[d]));
+
+      dst << src.rdbuf();
+    } 
+
+    /* load it, then create the job */
+    database.load(std::string("./") + std::string(bad_database[d]));  
+    ASSERT(ERROR_NO_ERROR == database.create_job("my job",job));
+
+    /* verify that the new job details are correct */
+    ASSERT(ERROR_NO_ERROR == database.get_job_description(created_job,"my job"));
+
+    ASSERT(9                          == created_job["max-runtime"].get<unsigned long int>()); 
+    ASSERT(0.0                        == created_job["avg-runtime"].get<double>()); 
+    ASSERT(0.0                        == created_job["var-runtime"].get<double>()); 
+    ASSERT(std::string("1 2 3 4 5 6") == created_job["schedule"].get<std::string>()); 
+    ASSERT(0                          == created_job["nbr-runs"].get<unsigned long int>()); 
+    ASSERT(expected_program           == created_job["program"].get<std::vector<std::string> >()); 
+    ASSERT(std::string("stopped")     == created_job["status"].get<std::string>());
+    ASSERT(0                          == created_job["start-time"].get<std::time_t>());
+
+    database.get_all_job_names(job_names);
+    ASSERT(1 == job_names.size());
+
+    /* load it again and verify that it:
+      - loads correctly
+      - has one single job 
+      - the job details are correct
+     */
+    ASSERT(ERROR_NO_ERROR == database.load(std::string("./") + std::string(bad_database[d])));  
+    
+    database.get_all_job_names(job_names);
+    ASSERT(1 == job_names.size());
+
+    ASSERT(ERROR_NO_ERROR == database.get_job_description(created_job,"my job"));
+
+    ASSERT(9                          == created_job["max-runtime"].get<unsigned long int>()); 
+    ASSERT(0.0                        == created_job["avg-runtime"].get<double>()); 
+    ASSERT(0.0                        == created_job["var-runtime"].get<double>()); 
+    ASSERT(std::string("1 2 3 4 5 6") == created_job["schedule"].get<std::string>()); 
+    ASSERT(0                          == created_job["nbr-runs"].get<unsigned long int>()); 
+    ASSERT(expected_program           == created_job["program"].get<std::vector<std::string> >()); 
+    ASSERT(std::string("stopped")     == created_job["status"].get<std::string>());
+    ASSERT(0                          == created_job["start-time"].get<std::time_t>());
+  }
+
+  /* cannot create a job with an already existing name */
+  ASSERT(ERROR_NO_ERROR == database.load("./empty_db.json"));
+  ASSERT(ERROR_JOB_NAME_TAKEN == database.create_job("my job",job));
+
+  /* cannot create a job without the following properties:
+    - program
+    - schedule
+    - max-runtime
+  */
+  nlohmann::json invalid_job; 
+
+  invalid_job["avg-runtime"] = 21.9;
+  invalid_job["var-runtime"] = 8.76;
+  invalid_job["nbr-runs"]    = 123;
+  invalid_job["status"]      = "fubar";
+  invalid_job["start-time"]  = 12346;
+
+  ASSERT(ERROR_JOB_DESCRIPTION_INVALID == database.create_job("my other job",invalid_job));
+
+  invalid_job["program"] = expected_program;  
+  ASSERT(ERROR_JOB_DESCRIPTION_INVALID == database.create_job("my other job",invalid_job));
+  
+  invalid_job["schedule"] = "* * * * 3 4";  
+  ASSERT(ERROR_JOB_DESCRIPTION_INVALID == database.create_job("my other job",invalid_job));
+
+  invalid_job["max-runtime"] = 42;  
+  ASSERT(ERROR_NO_ERROR == database.create_job("my other job",invalid_job));
+
+  /* verify that only the mandatory properties are set */
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"my other job"));
+
+  ASSERT(42                         == job["max-runtime"].get<unsigned long int>()); 
+  ASSERT(0.0                        == job["avg-runtime"].get<double>()); 
+  ASSERT(0.0                        == job["var-runtime"].get<double>()); 
+  ASSERT(std::string("* * * * 3 4") == job["schedule"].get<std::string>()); 
+  ASSERT(0                          == job["nbr-runs"].get<unsigned long int>()); 
+  ASSERT(expected_program           == job["program"].get<std::vector<std::string> >()); 
+  ASSERT(std::string("stopped")     == job["status"].get<std::string>());
+  ASSERT(0                          == job["start-time"].get<std::time_t>());
+}
+
+void test_database_edit_job(void)
+{
+  KiwibesDatabase database; 
+  nlohmann::json update;
+
+  update["max-runtime"] = 1234;
+
+  /* in case of an empty database, or an error while loading 
+     the database, cannot edit jobs because they don't exist 
+   */
+  const char *bad_database[] = {
+    "../tests/data/databases/empty_db.json",
+    "../tests/data/databases/syntax_error.json",
+    "../tests/data/databases/job_incomplete_data.json",
+  };
+
+  for(unsigned int d = 0; d < sizeof(bad_database)/sizeof(const char *); d++)
+  {
+    database.load(bad_database[d]);  
+    ASSERT(ERROR_JOB_NAME_UNKNOWN == database.edit_job("my job",update));
+  }
+
+  /* because all job changes are written to the database, we need to use
+     a copy of the original database 
+   */
+  {
+    std::ifstream src("../tests/data/databases/single_job.json");
+    std::ofstream dst("./single_job.json");
+
+    dst << src.rdbuf();
+  }
+
+  /* load a valid database */
+  ASSERT(ERROR_NO_ERROR == database.load("./single_job.json"));
+
+  /* cannot edit a non-existing job */
+  ASSERT(ERROR_JOB_NAME_UNKNOWN == database.edit_job("my job",update));
+
+  /* can only edit: 
+    - program 
+    - max-runtime
+    - schedule
+
+    all other properties are ignored
+   */
+  nlohmann::json job; 
+  std::vector<std::string> expected_program = { "/usr/bin/ls", "-hal"} ;
+
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job 1"));
+
+  ASSERT(10                     == job["max-runtime"].get<unsigned long int>()); 
+  ASSERT(0.0                    == job["avg-runtime"].get<double>()); 
+  ASSERT(0.0                    == job["var-runtime"].get<double>()); 
+  ASSERT(std::string("")        == job["schedule"].get<std::string>()); 
+  ASSERT(0                      == job["nbr-runs"].get<unsigned long int>()); 
+  ASSERT(expected_program       == job["program"].get<std::vector<std::string> >()); 
+  ASSERT(std::string("stopped") == job["status"].get<std::string>());
+  ASSERT(0                      == job["start-time"].get<std::time_t>());     
+
+  /* update the max-runtime property of a job */
+  update["max-runtime"] = 69;
+  ASSERT(ERROR_NO_ERROR == database.edit_job("job 1",update));
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job 1"));
+
+  ASSERT(69                     == job["max-runtime"].get<unsigned long int>()); 
+  ASSERT(0.0                    == job["avg-runtime"].get<double>()); 
+  ASSERT(0.0                    == job["var-runtime"].get<double>()); 
+  ASSERT(std::string("")        == job["schedule"].get<std::string>()); 
+  ASSERT(0                      == job["nbr-runs"].get<unsigned long int>()); 
+  ASSERT(expected_program       == job["program"].get<std::vector<std::string> >()); 
+  ASSERT(std::string("stopped") == job["status"].get<std::string>());
+  ASSERT(0                      == job["start-time"].get<std::time_t>());    
+
+  /* update the schedule property of a job */
+  update = { {"schedule", "* * * * 5 6"} };
+
+  ASSERT(ERROR_NO_ERROR == database.edit_job("job 1",update));
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job 1"));
+
+  ASSERT(69                         == job["max-runtime"].get<unsigned long int>()); 
+  ASSERT(0.0                        == job["avg-runtime"].get<double>()); 
+  ASSERT(0.0                        == job["var-runtime"].get<double>()); 
+  ASSERT(std::string("* * * * 5 6") == job["schedule"].get<std::string>()); 
+  ASSERT(0                          == job["nbr-runs"].get<unsigned long int>()); 
+  ASSERT(expected_program           == job["program"].get<std::vector<std::string> >()); 
+  ASSERT(std::string("stopped")     == job["status"].get<std::string>());
+  ASSERT(0                          == job["start-time"].get<std::time_t>());        
+
+  /* update the program property of a job */
+  update = { {"program", {"/usr/bin/echo"}} };
+  expected_program = {"/usr/bin/echo"};
+
+  ASSERT(ERROR_NO_ERROR == database.edit_job("job 1",update));
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job 1"));
+
+  ASSERT(69                         == job["max-runtime"].get<unsigned long int>()); 
+  ASSERT(0.0                        == job["avg-runtime"].get<double>()); 
+  ASSERT(0.0                        == job["var-runtime"].get<double>()); 
+  ASSERT(std::string("* * * * 5 6") == job["schedule"].get<std::string>()); 
+  ASSERT(0                          == job["nbr-runs"].get<unsigned long int>()); 
+  ASSERT(expected_program           == job["program"].get<std::vector<std::string> >()); 
+  ASSERT(std::string("stopped")     == job["status"].get<std::string>());
+  ASSERT(0                          == job["start-time"].get<std::time_t>());        
+
+  /* all other properties are ignored */
+  update = { {"avg-runtime", 12,34}, {"var-runtime", 78.90}, {"status", "fubar"} };
+  
+  ASSERT(ERROR_NO_ERROR == database.edit_job("job 1",update));
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job 1"));
+
+  ASSERT(69                         == job["max-runtime"].get<unsigned long int>()); 
+  ASSERT(0.0                        == job["avg-runtime"].get<double>()); 
+  ASSERT(0.0                        == job["var-runtime"].get<double>()); 
+  ASSERT(std::string("* * * * 5 6") == job["schedule"].get<std::string>()); 
+  ASSERT(0                          == job["nbr-runs"].get<unsigned long int>()); 
+  ASSERT(expected_program           == job["program"].get<std::vector<std::string> >()); 
+  ASSERT(std::string("stopped")     == job["status"].get<std::string>());
+  ASSERT(0                          == job["start-time"].get<std::time_t>());          
+
+  /* cannot edit a job that is running */
+  ASSERT(ERROR_NO_ERROR == database.job_started("job 1"));
+
+  update = { {"program", {"/usr/bin/echo"}} };
+
+  ASSERT(ERROR_JOB_IS_RUNNING == database.edit_job("job 1",update));
 }
