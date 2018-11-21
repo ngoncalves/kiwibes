@@ -54,10 +54,6 @@ static T_KIWIBES_ERROR parse_command_line(T_CMD_LINE_OPTIONS &options, int argc,
 */
 static T_KIWIBES_ERROR validate_command_line(T_CMD_LINE_OPTIONS &options);
 
-/** Show the command line help
- */
-static void show_help(void);
-
 /*-------------------------- Public Function Definitions   -------------------------------*/
 T_KIWIBES_ERROR parse_and_validate_command_line(T_CMD_LINE_OPTIONS &options, int argc, char **argv)
 {
@@ -73,13 +69,20 @@ T_KIWIBES_ERROR parse_and_validate_command_line(T_CMD_LINE_OPTIONS &options, int
     error = validate_command_line(options);
   }
 
-  if(ERROR_NO_ERROR != error)
-  {
-    show_help();
-  }
-
   return error;
 }
+
+void show_cmd_line_help(void)
+{
+  std::cout << "Usage: kiwibes HOME [OPTIONS]" << std::endl << std::endl;
+  std::cout << "HOME is the full path to the Kiwibes working folder." << std::endl;
+  std::cout << "The options set different working parameters:" << std::endl;
+  std::cout << "  -l UINT : log level, must be in the range [0,2]. Default is 0 (aka critical messages only)" << std::endl;
+  std::cout << "  -s UINT : log maximum size in MB, must be less than 100. Default is 1 MB" << std::endl;
+  std::cout << "  -p UINT : HTTP listening port. Default is 4242" << std::endl;
+  std::cout << std::endl;
+}
+
 /*-------------------------- Private Function Definitions  -------------------------------*/
 static T_KIWIBES_ERROR parse_command_line(T_CMD_LINE_OPTIONS &options, int argc, char **argv)
 {
@@ -113,7 +116,7 @@ static T_KIWIBES_ERROR parse_command_line(T_CMD_LINE_OPTIONS &options, int argc,
       }
       else
       {
-        std::cout << "[ERROR] cannot parse option: " << argv[a] << std::endl;
+        std::cerr << "[ERROR] cannot parse option: " << argv[a] << std::endl;
         error = ERROR_CMDLINE_PARSE;    
         break;
       }
@@ -129,12 +132,12 @@ static T_KIWIBES_ERROR validate_command_line(T_CMD_LINE_OPTIONS &options)
 
   if(2 < options.log_level)
   {
-    std::cout << "[ERROR] invalid log level: " << options.log_level;
+    std::cerr << "[ERROR] invalid log level: " << options.log_level;
     error = ERROR_CMDLINE_INV_LOG_LEVEL;
   }
   else if(100 < options.log_max_size)
   {
-    std::cout << "[ERROR] invalid log maxium size: " << options.log_max_size;
+    std::cerr << "[ERROR] invalid log maxium size: " << options.log_max_size;
     error = ERROR_CMDLINE_INV_LOG_MAX_SIZE; 
   }
   else
@@ -145,22 +148,11 @@ static T_KIWIBES_ERROR validate_command_line(T_CMD_LINE_OPTIONS &options)
     
     if(0 != stat(options.home->c_str(),&path))
     {
-      std::cout << "[ERROR] home folder does not exist: " << *(options.home) << std::endl;
+      std::cerr << "[ERROR] home folder does not exist: " << *(options.home) << std::endl;
       error = ERROR_CMDLINE_INV_HOME;
     }
 #endif
   }
 
   return error;
-}
-
-static void show_help(void)
-{
-  std::cout << "Usage: kiwibes HOME [OPTIONS]" << std::endl << std::endl;
-  std::cout << "HOME is the full path to the Kiwibes working folder." << std::endl;
-  std::cout << "The options set different working parameters:" << std::endl;
-  std::cout << "  -l UINT : log level, must be in the range [0,2]. Default is 0 (aka critical messages only)" << std::endl;
-  std::cout << "  -s UINT : log maximum size in MB, must be less than 100. Default is 1 MB" << std::endl;
-  std::cout << "  -p UINT : HTTP listening port. Default is 4242" << std::endl;
-  std::cout << std::endl;
 }

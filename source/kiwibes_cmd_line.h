@@ -52,4 +52,8 @@ typedef struct{
 */
 T_KIWIBES_ERROR parse_and_validate_command_line(T_CMD_LINE_OPTIONS &options, int argc, char **argv);
 
+/** Show the command line help
+ */
+void show_cmd_line_help(void);
+
 #endif

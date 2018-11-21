@@ -50,7 +50,8 @@ OBJECTS := $(patsubst $(SOURCE)/%.cpp,$(BUILD)/%.o,$(SOURCES))
 SOURCES_TEST := $(SOURCE_TEST)/kiwibes_cron.cpp \
 				$(SOURCE_TEST)/kiwibes_scheduler_event.cpp \
 				$(SOURCE_TEST)/kiwibes_database.cpp \
-				$(SOURCE_TEST)/kiwibes_jobs_manager.cpp
+				$(SOURCE_TEST)/kiwibes_jobs_manager.cpp \
+				$(SOURCE_TEST)/kiwibes_cmd_line.cpp
 
 OBJECTS_TEST := $(patsubst $(SOURCE_TEST)/%.cpp,$(BUILD)/%.o,$(SOURCES_TEST))
 
@@ -85,6 +86,6 @@ $(BUILD)/%.o: $(SOURCE_3RD_PARTY)/ccronexpr/%.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 run: $(BUILD)/$(BINARY)
-	-cd $(BUILD); pwd; ./$(BINARY)
+	-cd $(BUILD); ./$(BINARY)
 
 print-%  : ; @echo $* = $($*)

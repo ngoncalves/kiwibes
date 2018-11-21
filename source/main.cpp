@@ -127,6 +127,10 @@ int main(int argc, char **argv)
     /* instantiate the Kiwibes components */
     error = initialize_kiwibes(options);
   }
+  else
+  {
+    show_cmd_line_help();
+  }
 
   if(ERROR_NO_ERROR == error)
   {
