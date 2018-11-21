@@ -29,8 +29,10 @@
 
 typedef enum{
   ERROR_NO_ERROR,                 /* not error */
-  ERROR_CMD_LINE_PARSE,           /* failed to parse the command line */
-  ERROR_HOME_SETUP,               /* failed to setup the home folder */
+  ERROR_CMDLINE_PARSE,            /* failed to parse the command line */
+  ERROR_CMDLINE_INV_LOG_LEVEL,    /* incorrect log level */
+  ERROR_CMDLINE_INV_LOG_MAX_SIZE, /* log maximum size if too large */
+  ERROR_CMDLINE_INV_HOME,         /* home folder does not exist */
   ERROR_NO_DATABASE_FILE,         /* the database file does not exist */ 
   ERROR_JSON_PARSE_FAIL,          /* failed to parse the JSON database file */ 
   ERROR_MAIN_INTERRUPTED,         /* caught CTRL-C */ 

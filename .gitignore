@@ -1,5 +1,5 @@
 build/
 releases/
 tests/temp/
-tests/source/main.cpp
-tests/source/ut_declarations.h
+tests/unit-tests/main.cpp
+tests/unit-tests/ut_declarations.h

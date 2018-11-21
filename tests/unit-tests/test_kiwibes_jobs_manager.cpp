@@ -183,17 +183,20 @@ void test_jobs_manager_stop_all_jobs(void)
   manager.stop_all_jobs();
 
   /* wait a little, verify all jobs efectively stopped */
-  std::this_thread::sleep_for(std::chrono::seconds(1));
+  std::this_thread::sleep_for(std::chrono::seconds(2));
 
   for(unsigned int t = 0; t < sizeof(names)/sizeof(const char *); t++)
   {
     nlohmann::json job;
 
+    /* not checking the value of the average runtime because it depends
+       on how the particular timmings for which the OS launches/kills the
+       job processes and the Kiwibes threads.
+     */
     ASSERT(ERROR_NO_ERROR == database.get_job_description(job,names[t]));
     ASSERT(std::string("stopped") == job["status"].get<std::string>());
     ASSERT(0                      == job["start-time"].get<std::time_t>());   
     ASSERT(1                      == job["nbr-runs"].get<unsigned long int>()); 
-    ASSERT(0.0                    <  job["avg-runtime"].get<double>()); 
     ASSERT(0.0                    == job["var-runtime"].get<double>()); 
   }
 }

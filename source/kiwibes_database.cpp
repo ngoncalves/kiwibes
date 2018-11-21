@@ -184,6 +184,9 @@ T_KIWIBES_ERROR KiwibesDatabase::job_stopped(const std::string &name)
     (*dbjobs)[name]["avg-runtime"] = avg;
     (*dbjobs)[name]["var-runtime"] = var;
     (*dbjobs)[name]["nbr-runs"]    = runs;
+
+    /* save the changes to the job description */
+    unsafe_save();
   }
 
   return error;
