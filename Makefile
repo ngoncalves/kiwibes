@@ -29,12 +29,15 @@
 SOURCE := source
 TESTS  := tests
 BUILD  := build
+UNIT_TESTS := $(TESTS)/unit-tests
+VLD_TESTS  := $(TESTS)/validation-tests
 
 #----------------------------------------------------------------------------
 # Targets
 #   - help         : show information about the available targets
 #   - kiwibes      : build the Kiwibes Automation Server 
-#   - ut-kiwibes   : build and run the unit-tests for the Kiwibes
+#   - ut-kiwibes   : build and run the unit tests for Kiwibes
+#   - vld-kiwibes  : run the validation tests for Kiwibes
 #----------------------------------------------------------------------------
 
 all: help 
@@ -43,7 +46,8 @@ help:
 	@echo '--------------------------------------------------------------------------'
 	@echo 'Available targets:'
 	@echo '  kiwibes      	: build the Kiwibes Automation Server'
-	@echo '  ut-kiwibes   	: build and run the unit-tests for the Kiwibes'
+	@echo '  ut-kiwibes   	: build and run the unit tests for Kiwibes'
+	@echo '  vld-kiwibes   	: run the validation tests for Kiwibes'
 	@echo '  clean        	: clear the build directory'
 	@echo '  help         	: this text'
 	@echo '--------------------------------------------------------------------------'
@@ -52,9 +56,12 @@ kiwibes:
 	make -C $(SOURCE)/
 
 ut-kiwibes:
-	python $(TESTS)/util/generate_ut.py Kiwibes $(TESTS)/unit-tests
-	make -C $(TESTS)/unit-tests
-	make -C $(TESTS)/unit-tests run
+	python $(TESTS)/util/generate_ut.py Kiwibes $(UNIT_TESTS)
+	make -C $(UNIT_TESTS)
+	make -C $(UNIT_TESTS) run
+
+vld-kiwibes: kiwibes
+	-python -m pytest $(VLD_TESTS) 
 
 .PHONY: clean
 

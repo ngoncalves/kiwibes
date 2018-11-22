@@ -118,8 +118,15 @@ T_KIWIBES_ERROR KiwibesDatabase::save(void)
 
 void KiwibesDatabase::unsafe_save(void)
 {
-  std::ofstream dbfile((*dbpath));
-  dbfile << std::setw(4) << (*dbjobs) << std::endl;
+  if(nullptr == dbpath.get())
+  {
+    LOG_CRIT << "cannot save database because it is NULL";
+  }
+  else
+  {
+    std::ofstream dbfile((*dbpath));
+    dbfile << std::setw(4) << (*dbjobs) << std::endl;
+  }
 }
 
 T_KIWIBES_ERROR KiwibesDatabase::job_started(const std::string &name)
