@@ -25,3 +25,7 @@ The list of jobs is read on startup from a JSON file.
 
 TODO:
 	- UTF-8 support: not sure if it supports other languages, besides English
+
+Dependencies
+------------
+ - python, pytest and requests for testing

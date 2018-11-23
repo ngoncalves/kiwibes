@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Generate Unit Tests
-===================
+Kiwibes Validation Tests
+========================
 Copyright 2018, Nelson Filipe Ferreira Gonçalves
 nelsongoncalves@patois.eu
 
@@ -22,8 +22,10 @@ Summary
 Test the startup behavior of the Kiwibes Automation Server
 """
 import util
+import os
+import json
 
-def test_start_invalid_arguments():
+def test_invalid_arguments():
 	"""
 	Startup with invalid command line arguments 
 	"""
@@ -49,7 +51,7 @@ def test_start_invalid_arguments():
 		
 		assert error == util.launch_blocking(args)
 
-def test_start_invalid_database():
+def test_invalid_database():
 	"""
 	Startup with invalid database files
 	"""
@@ -70,4 +72,22 @@ def test_start_invalid_database():
 
 	assert util.KIWIBES_ERRORS['ERROR_JOB_DESCRIPTION_INVALID'] == util.launch_blocking([util.KIWIBES_HOME])
 
+def test_empty_home():
+	"""
+	Verify that on startup with an empty folder:
+		- a log file is created
+		- an empty database is created
+	"""
+	util.clean_home_folder()
+	kiwibes = util.launch_non_blocking([util.KIWIBES_HOME])
+
+	db_created  = os.path.isfile(os.path.join(util.KIWIBES_HOME,"kiwibes.json"))
+	log_created = os.path.isfile(os.path.join(util.KIWIBES_HOME,"kiwibes.log.1.txt"))
+	dbfile = open(os.path.join(util.KIWIBES_HOME,"kiwibes.json"),'r')
+	db = json.loads(dbfile.read())
 	
+	kiwibes.terminate()
+
+	assert db_created == True 
+	assert db == None
+	assert log_created == True 

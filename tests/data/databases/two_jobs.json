@@ -1,5 +1,5 @@
 {
-	"job 1" : {
+	"job_1" : {
 		"program"     : [ "/usr/bin/ls", "-hal" ],
 		"max-runtime" : 10,
 		"avg-runtime" : 23.3456,
@@ -10,7 +10,7 @@
 		"nbr-runs"    : 1				
 	},
 	
-	"job 2" : {
+	"job_2" : {
 		"program"     : [ "/usr/bin/ls", "-h", "-a", "-l" ],
 		"max-runtime" : 10,
 		"avg-runtime" : 2.45,

@@ -1,5 +1,5 @@
 {
-	"sleep 2" : {
+	"sleep_2" : {
 		"program"     : [ "/bin/sleep", "2" ],
 		"max-runtime" : 4,
 		"avg-runtime" : 0.0,
@@ -10,7 +10,7 @@
 		"nbr-runs"    : 0				
 	},
 
-	"sleep 20" : {
+	"sleep_20" : {
 		"program"     : [ "/bin/sleep", "20" ],
 		"max-runtime" : 22,
 		"avg-runtime" : 0.0,
@@ -21,7 +21,7 @@
 		"nbr-runs"    : 0				
 	},
 
-	"sleep 10" : {
+	"sleep_10" : {
 		"program"     : [ "/bin/sleep", "10" ],
 		"max-runtime" : 22,
 		"avg-runtime" : 0.0,

@@ -62,20 +62,20 @@ void test_jobs_manager_start_job(void)
   std::time_t    now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
   nlohmann::json job; 
 
-  ASSERT(ERROR_NO_ERROR == manager.start_job("sleep 2"));
-  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"sleep 2"));
+  ASSERT(ERROR_NO_ERROR == manager.start_job("sleep_2"));
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"sleep_2"));
 
   /* verify that it is started */
   ASSERT(std::string("running") == job["status"].get<std::string>());
   ASSERT(now                    == job["start-time"].get<std::time_t>());           
 
   /* cannot start it again */
-  ASSERT(ERROR_JOB_IS_RUNNING == manager.start_job("sleep 2"));
+  ASSERT(ERROR_JOB_IS_RUNNING == manager.start_job("sleep_2"));
 
   /* wait until it finishes */
   std::this_thread::sleep_for(std::chrono::seconds(job["max-runtime"].get<std::time_t>()));
 
-  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"sleep 2"));
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"sleep_2"));
 
   /* verify that it stopped. We only verify that the average runtime is greater
      than zero because the actual value depends on how the OS manages its threads.
@@ -114,29 +114,29 @@ void test_jobs_manager_stop_job(void)
   ASSERT(ERROR_JOB_IS_NOT_RUNNING == manager.stop_job("my job"));  
 
   /* attempt to stop a job that is not running */
-  ASSERT(ERROR_JOB_IS_NOT_RUNNING == manager.stop_job("sleep 2"));  
+  ASSERT(ERROR_JOB_IS_NOT_RUNNING == manager.stop_job("sleep_2"));  
 
   /* start a job which takes 20 seconds */
   std::time_t    now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
   nlohmann::json job; 
 
-  ASSERT(ERROR_NO_ERROR == manager.start_job("sleep 20"));
+  ASSERT(ERROR_NO_ERROR == manager.start_job("sleep_20"));
 
   /* wait a little, verify it is still running and then force it to stop */
   std::this_thread::sleep_for(std::chrono::seconds(1));
 
   /* verify it is still running */
-  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"sleep 20"));
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"sleep_20"));
   ASSERT(std::string("running") == job["status"].get<std::string>());
   ASSERT(now                    == job["start-time"].get<std::time_t>());           
 
   /* force it to stop */
-  ASSERT(ERROR_NO_ERROR == manager.stop_job("sleep 20"));
+  ASSERT(ERROR_NO_ERROR == manager.stop_job("sleep_20"));
 
   /* wait a little, verify it stopped */
   std::this_thread::sleep_for(std::chrono::seconds(1));
 
-  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"sleep 20"));
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"sleep_20"));
   ASSERT(std::string("stopped") == job["status"].get<std::string>());
   ASSERT(0                      == job["start-time"].get<std::time_t>());   
   ASSERT(1                      == job["nbr-runs"].get<unsigned long int>()); 
@@ -168,7 +168,7 @@ void test_jobs_manager_stop_all_jobs(void)
 
   /* start all jobs, then stop them all */
   const char *names[] = {
-    "sleep 2", "sleep 20", "sleep 10",
+    "sleep_2", "sleep_20", "sleep_10",
   };
 
   for(unsigned int t = 0; t < sizeof(names)/sizeof(const char *); t++)

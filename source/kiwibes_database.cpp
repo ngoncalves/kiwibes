@@ -205,11 +205,15 @@ void KiwibesDatabase::get_all_schedulable_jobs(std::vector<std::string> &jobs)
 
   for(nlohmann::json::iterator job = dbjobs->begin() ; job != dbjobs->end(); job++)
   {
-    KiwibesCron cron(job.value()["schedule"].get<std::string>());
-    
-    if(true == cron.is_valid())
+    /* don bother to check empty schedule strings */
+    if(0 < job.value()["schedule"].get<std::string>().length())
     {
-      jobs.push_back(job.key());
+      KiwibesCron cron(job.value()["schedule"].get<std::string>());
+    
+      if(true == cron.is_valid())
+      {
+        jobs.push_back(job.key());
+      }
     }
   }
 }

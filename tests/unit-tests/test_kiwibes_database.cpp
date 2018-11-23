@@ -84,7 +84,7 @@ void test_database_load(void)
 
   database.get_all_job_names(job_names);
 
-  std::vector<std::string> expected_names = { "job 1", "job 2"};
+  std::vector<std::string> expected_names = { "job_1", "job_2"};
 
   ASSERT(expected_names == job_names);
 }
@@ -101,8 +101,8 @@ void test_database_get_all_schedulable_jobs(void)
   database.get_all_job_names(all_jobs);
   database.get_all_schedulable_jobs(schedulable_jobs);
 
-  std::vector<std::string> expected_all_jobs = { "job 1", "job 2"};
-  std::vector<std::string> expected_schedulable_jobs = { "job 2"};
+  std::vector<std::string> expected_all_jobs = { "job_1", "job_2"};
+  std::vector<std::string> expected_schedulable_jobs = { "job_2"};
 
   ASSERT(expected_all_jobs == all_jobs);
   ASSERT(expected_schedulable_jobs == schedulable_jobs);
@@ -139,7 +139,7 @@ void test_database_get_job_description(void)
   /* "job 1" exists, verify it is correctly read out */
   std::vector<std::string> expected_program = { "/usr/bin/ls", "-hal"};
 
-  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job 1"));
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job_1"));
 
   ASSERT(10                     == job["max-runtime"].get<unsigned long int>()); 
   ASSERT(23.3456                == job["avg-runtime"].get<double>()); 
@@ -155,7 +155,7 @@ void test_database_get_job_description(void)
   /* "job 2" exists, verify it is correctly read out */
   expected_program = { "/usr/bin/ls", "-h","-a","-l"};
 
-  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job 2"));
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job_2"));
 
   ASSERT(10                         == job["max-runtime"].get<unsigned long int>()); 
   ASSERT(2.45                       == job["avg-runtime"].get<double>()); 
@@ -210,7 +210,7 @@ void test_database_job_started(void)
   nlohmann::json job;
   std::vector<std::string> expected_program = { "/usr/bin/ls", "-hal"};
 
-  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job 1"));
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job_1"));
 
   ASSERT(10                     == job["max-runtime"].get<unsigned long int>()); 
   ASSERT(0.0                    == job["avg-runtime"].get<double>()); 
@@ -223,9 +223,9 @@ void test_database_job_started(void)
 
   std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 
-  ASSERT(ERROR_NO_ERROR == database.job_started("job 1"));
+  ASSERT(ERROR_NO_ERROR == database.job_started("job_1"));
 
-  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job 1"));
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job_1"));
 
   /* only these parameters change */
   ASSERT(std::string("running") == job["status"].get<std::string>());
@@ -240,7 +240,7 @@ void test_database_job_started(void)
   ASSERT(expected_program       == job["program"].get<std::vector<std::string> >()); 
 
   /* cannot start the job twice */
-  ASSERT(ERROR_JOB_IS_RUNNING == database.job_started("job 1"));
+  ASSERT(ERROR_JOB_IS_RUNNING == database.job_started("job_1"));
 }
 
 void test_database_job_stopped(void)
@@ -286,9 +286,9 @@ void test_database_job_stopped(void)
    */
   now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 
-  ASSERT(ERROR_NO_ERROR == database.job_started("job 1"));
+  ASSERT(ERROR_NO_ERROR == database.job_started("job_1"));
   
-  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job 1"));
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job_1"));
 
   ASSERT(10                     == job["max-runtime"].get<unsigned long int>()); 
   ASSERT(0.0                    == job["avg-runtime"].get<double>()); 
@@ -301,9 +301,9 @@ void test_database_job_stopped(void)
 
   std::this_thread::sleep_for(std::chrono::seconds(2));
 
-  ASSERT(ERROR_NO_ERROR == database.job_stopped("job 1"));
+  ASSERT(ERROR_NO_ERROR == database.job_stopped("job_1"));
 
-  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job 1"));
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job_1"));
 
   /* these parameters do not change when starting/stopping jobs */
   ASSERT(10                     == job["max-runtime"].get<unsigned long int>()); 
@@ -320,7 +320,7 @@ void test_database_job_stopped(void)
   ASSERT(0.0                    == job["var-runtime"].get<double>()); 
 
   /* cannot stop the job twice */
-  ASSERT(ERROR_JOB_IS_NOT_RUNNING == database.job_stopped("job 1"));
+  ASSERT(ERROR_JOB_IS_NOT_RUNNING == database.job_stopped("job_1"));
 }
 
 void test_database_delete_job(void)
@@ -361,13 +361,13 @@ void test_database_delete_job(void)
   ASSERT(ERROR_JOB_NAME_UNKNOWN == database.delete_job("my job"));
 
   /* cannot delete a job that is running */
-  ASSERT(ERROR_NO_ERROR == database.job_started("job 1"));  
-  ASSERT(ERROR_JOB_IS_RUNNING == database.delete_job("job 1"));
+  ASSERT(ERROR_NO_ERROR == database.job_started("job_1"));  
+  ASSERT(ERROR_JOB_IS_RUNNING == database.delete_job("job_1"));
 
   /* delete the job and verify it cannot be retrieved afterwards */
-  ASSERT(ERROR_NO_ERROR == database.job_stopped("job 1"));
-  ASSERT(ERROR_NO_ERROR == database.delete_job("job 1"));  
-  ASSERT(ERROR_JOB_NAME_UNKNOWN == database.get_job_description(job,"job 1"));  
+  ASSERT(ERROR_NO_ERROR == database.job_stopped("job_1"));
+  ASSERT(ERROR_NO_ERROR == database.delete_job("job_1"));  
+  ASSERT(ERROR_JOB_NAME_UNKNOWN == database.get_job_description(job,"job_1"));  
 
   /* loading the database again, it is empty */
   ASSERT(ERROR_NO_ERROR == database.load("./single_job.json"));
@@ -540,7 +540,7 @@ void test_database_edit_job(void)
   nlohmann::json job; 
   std::vector<std::string> expected_program = { "/usr/bin/ls", "-hal"} ;
 
-  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job 1"));
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job_1"));
 
   ASSERT(10                     == job["max-runtime"].get<unsigned long int>()); 
   ASSERT(0.0                    == job["avg-runtime"].get<double>()); 
@@ -553,8 +553,8 @@ void test_database_edit_job(void)
 
   /* update the max-runtime property of a job */
   update["max-runtime"] = 69;
-  ASSERT(ERROR_NO_ERROR == database.edit_job("job 1",update));
-  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job 1"));
+  ASSERT(ERROR_NO_ERROR == database.edit_job("job_1",update));
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job_1"));
 
   ASSERT(69                     == job["max-runtime"].get<unsigned long int>()); 
   ASSERT(0.0                    == job["avg-runtime"].get<double>()); 
@@ -568,8 +568,8 @@ void test_database_edit_job(void)
   /* update the schedule property of a job */
   update = { {"schedule", "* * * * 5 6"} };
 
-  ASSERT(ERROR_NO_ERROR == database.edit_job("job 1",update));
-  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job 1"));
+  ASSERT(ERROR_NO_ERROR == database.edit_job("job_1",update));
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job_1"));
 
   ASSERT(69                         == job["max-runtime"].get<unsigned long int>()); 
   ASSERT(0.0                        == job["avg-runtime"].get<double>()); 
@@ -584,8 +584,8 @@ void test_database_edit_job(void)
   update = { {"program", {"/usr/bin/echo"}} };
   expected_program = {"/usr/bin/echo"};
 
-  ASSERT(ERROR_NO_ERROR == database.edit_job("job 1",update));
-  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job 1"));
+  ASSERT(ERROR_NO_ERROR == database.edit_job("job_1",update));
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job_1"));
 
   ASSERT(69                         == job["max-runtime"].get<unsigned long int>()); 
   ASSERT(0.0                        == job["avg-runtime"].get<double>()); 
@@ -599,8 +599,8 @@ void test_database_edit_job(void)
   /* all other properties are ignored */
   update = { {"avg-runtime", 12,34}, {"var-runtime", 78.90}, {"status", "fubar"} };
   
-  ASSERT(ERROR_NO_ERROR == database.edit_job("job 1",update));
-  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job 1"));
+  ASSERT(ERROR_NO_ERROR == database.edit_job("job_1",update));
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job_1"));
 
   ASSERT(69                         == job["max-runtime"].get<unsigned long int>()); 
   ASSERT(0.0                        == job["avg-runtime"].get<double>()); 
@@ -612,9 +612,9 @@ void test_database_edit_job(void)
   ASSERT(0                          == job["start-time"].get<std::time_t>());          
 
   /* cannot edit a job that is running */
-  ASSERT(ERROR_NO_ERROR == database.job_started("job 1"));
+  ASSERT(ERROR_NO_ERROR == database.job_started("job_1"));
 
   update = { {"program", {"/usr/bin/echo"}} };
 
-  ASSERT(ERROR_JOB_IS_RUNNING == database.edit_job("job 1",update));
+  ASSERT(ERROR_JOB_IS_RUNNING == database.edit_job("job_1",update));
 }

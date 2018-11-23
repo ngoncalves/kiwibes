@@ -101,6 +101,14 @@ static void rest_logger(const httplib::Request& req, const httplib::Response& re
  */
 static void rest_error_handler(const httplib::Request& req, httplib::Response& res);
 
+/** Read the job parameters from the POST request
+
+  @param params   on return, contains the POST job parameters
+  @param req      the incomming HTTP request
+  @return true if successfull, false otherwise
+ */
+static bool read_job_parameters(nlohmann::json &params, const httplib::Request &req);
+
 /*--------------------------Public Function Definitions -------------------------------*/
 void setup_rest_interface(httplib::Server *http, KiwibesJobsManager *manager, KiwibesScheduler *scheduler, KiwibesDatabase *database)
 {
@@ -145,20 +153,20 @@ void post_stop_job(const httplib::Request& req, httplib::Response& res)
 void post_create_job(const httplib::Request& req, httplib::Response& res)
 {
   nlohmann::json result;
+  nlohmann::json params; 
 
-  if(0 == req.params.size())
+  if(false == read_job_parameters(params,req))
   {
-    result["error"] = ERROR_EMPTY_REST_REQUEST;
+    result["error"] = ERROR_JOB_DESCRIPTION_INVALID;
   }
   else
   {
-    nlohmann::json description((*(req.params.begin())).second);
-    result["error"] = pDatabase->create_job(req.matches[1],description);
+    result["error"] = pDatabase->create_job(req.matches[1],params);
   
     if(ERROR_NO_ERROR == result["error"].get<T_KIWIBES_ERROR>())
     {
       /* if the job was created and can be scheduled, then scheduled it */
-      KiwibesCron cron(description["schedule"]);
+      KiwibesCron cron(params["schedule"]);
 
       if(cron.is_valid())
       {
@@ -173,23 +181,24 @@ void post_create_job(const httplib::Request& req, httplib::Response& res)
 void post_edit_job(const httplib::Request& req, httplib::Response& res)
 {
   nlohmann::json result;
+  nlohmann::json params; 
 
-  if(0 == req.params.size())
+  if(false == read_job_parameters(params,req))
   {
     result["error"] = ERROR_EMPTY_REST_REQUEST;
   }
   else
   {
-    nlohmann::json description((*(req.params.begin())).second);
-    result["error"] = pDatabase->edit_job(req.matches[1],description);
+    result["error"] = pDatabase->edit_job(req.matches[1],params);
   
     if(ERROR_NO_ERROR == result["error"].get<T_KIWIBES_ERROR>())
     {
       /* if the job was edited and can be scheduled, then scheduled it */
-      KiwibesCron cron(description["schedule"]);
+      KiwibesCron cron(params["schedule"]);
 
       if(cron.is_valid())
       {
+        pScheduler->unschedule_job(req.matches[1]);
         pScheduler->schedule_job(req.matches[1]);
       }
       else
@@ -239,10 +248,58 @@ void get_list_jobs(const httplib::Request& req, httplib::Response& res)
 
 static void rest_logger(const httplib::Request& req, const httplib::Response& res)
 {
-  LOG_INFO << req.method.c_str() << " - " << req.path.c_str();
+  std::string params("");
+
+  for(auto it = req.params.begin(); it != req.params.end(); ++it)
+  {
+    params += (it == req.params.begin() ? '?' : '&') + (*it).first + (*it).second;
+  }
+
+  LOG_INFO << req.method.c_str() << " - " << req.path.c_str() << params ; 
 }
 
 static void rest_error_handler(const httplib::Request& req, httplib::Response& res)
 {
   res.set_content("<p>ERROR</p>","text/html");
+}
+
+static bool read_job_parameters(nlohmann::json &params, const httplib::Request &req)
+{
+  bool success = true; 
+  
+  /* the expected parameters are: 
+    - program     : a string array 
+    - schedule    : a string 
+    - max-runtime : an unsigned long integer 
+   */
+  if(true == req.has_param("max-runtime"))
+  {
+    params["max-runtime"] = (unsigned long int)std::stol(req.get_param_value("max-runtime"));
+  } 
+  else
+  {
+    success = false;
+  }
+
+  if(true == req.has_param("schedule"))
+  {
+    params["schedule"] = std::string(req.get_param_value("schedule"));
+  } 
+  else
+  {
+    success = false;
+  }
+
+  if(true == req.has_param("program"))
+  {
+    std::vector<std::string> program;
+    req.get_param_value_as_vector(program,"program");
+    params["program"] = program;
+  } 
+  else
+  {
+    success = false;
+  }
+
+  return success; 
 }
