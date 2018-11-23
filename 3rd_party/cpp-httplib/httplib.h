@@ -136,6 +136,7 @@ struct Request {
 
     bool has_param(const char* key) const;
     std::string get_param_value(const char* key) const;
+    void get_param_value_as_vector(std::vector<std::string> &value, const char *key) const;
 
     bool has_file(const char* key) const;
     MultipartFile get_file_value(const char* key) const;
@@ -1335,6 +1336,17 @@ inline std::string Request::get_param_value(const char* key) const
         return it->second;
     }
     return std::string();
+}
+
+inline void Request::get_param_value_as_vector(std::vector<std::string> &value, const char* key) const
+{
+    value.clear();
+    auto range = params.equal_range(key);
+
+    for(auto it = range.first; it != range.second; it++)
+    {
+        value.push_back((*it).second);
+    }
 }
 
 inline bool Request::has_file(const char* key) const
