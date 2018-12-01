@@ -85,7 +85,14 @@ static void get_get_job(const httplib::Request& req, httplib::Response& res);
   @param req  the incoming HTTP request
   @param res  the outgoing HTTP response
  */
-static void get_list_jobs(const httplib::Request& req, httplib::Response& res);
+static void get_jobs_list(const httplib::Request& req, httplib::Response& res);
+
+/** REST: List the name of all jobs currently scheduled to run
+
+  @param req  the incoming HTTP request
+  @param res  the outgoing HTTP response
+ */
+static void get_scheduled_jobs(const httplib::Request& req, httplib::Response& res);
 
 /** REST: Requests logger
 
@@ -123,7 +130,8 @@ void setup_rest_interface(httplib::Server *http, KiwibesJobsManager *manager, Ki
   http->Post("/create_job/([a-zA-Z_0-9]+)",post_create_job);    
   http->Post("/edit_job/([a-zA-Z_0-9]+)",post_edit_job);    
   http->Post("/delete_job/([a-zA-Z_0-9]+)",post_delete_job);    
-  http->Get("/jobs_list",get_list_jobs);
+  http->Get("/jobs_list",get_jobs_list);
+  http->Get("/scheduled_jobs",get_scheduled_jobs);
   http->Get("/job/([a-zA-Z_0-9]+)",get_get_job);    
 
   /* setup the logger and the error handler */
@@ -132,7 +140,7 @@ void setup_rest_interface(httplib::Server *http, KiwibesJobsManager *manager, Ki
 }
 
 /*--------------------------Private Function Definitions -------------------------------*/
-void post_start_job(const httplib::Request& req, httplib::Response& res)
+static void post_start_job(const httplib::Request& req, httplib::Response& res)
 {
   nlohmann::json result;
 
@@ -141,7 +149,7 @@ void post_start_job(const httplib::Request& req, httplib::Response& res)
   res.set_content(result.dump(),"application/json");
 }
 
-void post_stop_job(const httplib::Request& req, httplib::Response& res)
+static void post_stop_job(const httplib::Request& req, httplib::Response& res)
 {
   nlohmann::json result;
 
@@ -150,7 +158,7 @@ void post_stop_job(const httplib::Request& req, httplib::Response& res)
   res.set_content(result.dump(),"application/json");
 }
 
-void post_create_job(const httplib::Request& req, httplib::Response& res)
+static void post_create_job(const httplib::Request& req, httplib::Response& res)
 {
   nlohmann::json result;
   nlohmann::json params; 
@@ -166,11 +174,18 @@ void post_create_job(const httplib::Request& req, httplib::Response& res)
     if(ERROR_NO_ERROR == result["error"].get<T_KIWIBES_ERROR>())
     {
       /* if the job was created and can be scheduled, then scheduled it */
-      KiwibesCron cron(params["schedule"]);
+      std::string schedule = params["schedule"].get<std::string>();
+      KiwibesCron cron(schedule);
 
-      if(cron.is_valid())
+      LOG_CRIT << "create job with schedule: |" << schedule << "|";
+
+      if((0 < schedule.size()) && (true == cron.is_valid()))
       {
         pScheduler->schedule_job(req.matches[1]);
+      }
+      else if((0 < schedule.size()) && (false == cron.is_valid()))
+      {
+        result["error"] = ERROR_JOB_SCHEDULE_INVALID;       
       }
     }
   } 
@@ -178,7 +193,7 @@ void post_create_job(const httplib::Request& req, httplib::Response& res)
   res.set_content(result.dump(),"application/json");
 }
 
-void post_edit_job(const httplib::Request& req, httplib::Response& res)
+static void post_edit_job(const httplib::Request& req, httplib::Response& res)
 {
   nlohmann::json result;
   nlohmann::json params; 
@@ -194,16 +209,21 @@ void post_edit_job(const httplib::Request& req, httplib::Response& res)
     if(ERROR_NO_ERROR == result["error"].get<T_KIWIBES_ERROR>())
     {
       /* if the job was edited and can be scheduled, then scheduled it */
-      KiwibesCron cron(params["schedule"]);
+      std::string schedule = params["schedule"].get<std::string>();
+      KiwibesCron cron(schedule);
 
       if(cron.is_valid())
       {
         pScheduler->unschedule_job(req.matches[1]);
         pScheduler->schedule_job(req.matches[1]);
       }
-      else
+      else if(0 == schedule.size())
       {
         pScheduler->unschedule_job(req.matches[1]);  
+      }
+      else if((0 < schedule.size()) && (false == cron.is_valid()))
+      {
+        result["error"] = ERROR_JOB_SCHEDULE_INVALID;  
       }
     }
   }
@@ -211,7 +231,7 @@ void post_edit_job(const httplib::Request& req, httplib::Response& res)
   res.set_content(result.dump(),"application/json");
 }
 
-void post_delete_job(const httplib::Request& req, httplib::Response& res)
+static void post_delete_job(const httplib::Request& req, httplib::Response& res)
 {
   nlohmann::json result;
 
@@ -226,7 +246,7 @@ void post_delete_job(const httplib::Request& req, httplib::Response& res)
   res.set_content(result.dump(),"application/json");
 }
 
-void get_get_job(const httplib::Request& req, httplib::Response& res)
+static void get_get_job(const httplib::Request& req, httplib::Response& res)
 {
   nlohmann::json job; 
   T_KIWIBES_ERROR error = pDatabase->get_job_description(job,req.matches[1]);
@@ -236,11 +256,21 @@ void get_get_job(const httplib::Request& req, httplib::Response& res)
   res.set_content(job.dump(),"application/json");
 }
 
-void get_list_jobs(const httplib::Request& req, httplib::Response& res)
+static void get_jobs_list(const httplib::Request& req, httplib::Response& res)
 {
   std::vector<std::string> jobs;
 
   pDatabase->get_all_job_names(jobs);
+  
+  nlohmann::json names(jobs); 
+  res.set_content(names.dump(),"application/json");    
+}
+
+static void get_scheduled_jobs(const httplib::Request& req, httplib::Response& res)
+{
+  std::vector<std::string> jobs;
+
+  pScheduler->get_all_scheduled_job_names(jobs);
   
   nlohmann::json names(jobs); 
   res.set_content(names.dump(),"application/json");    

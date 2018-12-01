@@ -36,6 +36,7 @@
 #include <memory>
 #include <thread>
 #include <map>
+#include <vector>
 
 class KiwibesScheduler {
 
@@ -73,6 +74,10 @@ public:
     If the job is not scheduled to run, nothing is done.
    */
   void unschedule_job(const std::string &name);
+
+  /** Return the list with all schedulled jobs
+   */
+  void get_all_scheduled_job_names(std::vector<std::string> &jobs); 
 
 private:
   KiwibesDatabase              *database;                 /* private pointer to the database */

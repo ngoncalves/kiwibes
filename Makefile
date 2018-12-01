@@ -47,7 +47,7 @@ help:
 	@echo 'Available targets:'
 	@echo '  kiwibes      	: build the Kiwibes Automation Server'
 	@echo '  ut-kiwibes   	: build and run the unit tests for Kiwibes'
-	@echo '  vld-kiwibes   	: run the validation tests for Kiwibes'
+	@echo '  vld-kiwibes	: run the validation tests for Kiwibes'
 	@echo '  clean        	: clear the build directory'
 	@echo '  help         	: this text'
 	@echo '--------------------------------------------------------------------------'
@@ -61,7 +61,7 @@ ut-kiwibes:
 	make -C $(UNIT_TESTS) run
 
 vld-kiwibes: kiwibes
-	-python -m pytest $(VLD_TESTS) 
+	-python -m pytest -v $(VLD_TESTS) 
 
 .PHONY: clean
 

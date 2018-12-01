@@ -64,6 +64,75 @@ def test_get_all_job_names():
 	assert 200 == result.status_code
 	assert sorted(['sleep_10','list_home']) == sorted(result.json())
 
+def test_get_scheduled_jobs():
+	"""
+	Return a list of jobs scheduled to run periodically
+	"""
+	# the jobs in the REST database have no schedule
+	result = requests.get('http://127.0.0.1:4242/scheduled_jobs')
+	assert 200 == result.status_code
+	assert 0 == len(result.json())
+
+	# create a job with a schedule, it will be scheduled automatically
+	scheduled_job =  {
+		"program"     : [ "/bin/ls",'-l','-a','-h'],
+		"schedule"    : "0 * * * * *",
+		"max-runtime" : 5,
+	}
+
+	result = requests.post('http://127.0.0.1:4242/create_job/list_hal',data=scheduled_job)	
+	assert 200 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']		
+
+	result = requests.get('http://127.0.0.1:4242/scheduled_jobs')
+	assert 200 == result.status_code
+	assert ["list_hal"] == result.json()
+
+	# create a job without a schedule, it won't be scheduled
+	unscheduled_job =  {
+		"program"     : [ "/bin/ls",'-l','-a','-h'],
+		"schedule"    : "",
+		"max-runtime" : 5,
+	}
+
+	result = requests.post('http://127.0.0.1:4242/create_job/unscheduled_list_hal',data=unscheduled_job)	
+	assert 200 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']		
+
+	result = requests.get('http://127.0.0.1:4242/scheduled_jobs')
+	assert 200 == result.status_code
+	assert ["list_hal"] == result.json()
+
+	# set a schedule for an unscheduled job, it will become scheduled
+	scheduled_job =  {
+		"program"     : [ "/bin/sleep",'10'],
+		"schedule"    : "0 0 * * * *",
+		"max-runtime" : 12,
+	}
+
+	result = requests.post('http://127.0.0.1:4242/edit_job/sleep_10',data=scheduled_job)	
+	assert 200 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']		
+
+	result = requests.get('http://127.0.0.1:4242/scheduled_jobs')
+	assert 200 == result.status_code
+	assert sorted(["list_hal","sleep_10"]) == sorted(result.json())
+
+	# remove the schedule from a job, it will be unscheduled
+	unscheduled_job =  {
+		"program"     : [ "/bin/sleep",'10'],
+		"schedule"    : "",
+		"max-runtime" : 12,
+	}
+
+	result = requests.post('http://127.0.0.1:4242/edit_job/sleep_10',data=unscheduled_job)	
+	assert 200 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']		
+
+	result = requests.get('http://127.0.0.1:4242/scheduled_jobs')
+	assert 200 == result.status_code
+	assert sorted(["list_hal"]) == sorted(result.json())
+
 def test_get_job_details():
 	"""
 	Retrieve the details of a job
@@ -89,7 +158,7 @@ def test_get_job_details():
 	assert result.json()["start-time"]  == 0
 	assert result.json()["nbr-runs"]    == 0				
 
-def test_create_job():
+def test_post_create_job():
 	"""
 	Create a job 
 	"""
@@ -162,7 +231,7 @@ def test_create_job():
 	assert result.json()["start-time"]  == 0
 	assert result.json()["nbr-runs"]    == 0
 
-def test_edit_job(): 
+def test_post_edit_job(): 
 	"""
 	Edit an existing job 
 	"""
@@ -240,7 +309,7 @@ def test_edit_job():
 
 	assert not "param1" in result.json().keys()
 
-def test_delete_job():
+def test_post_delete_job():
 	"""
 	Delete an existing job 
 	"""

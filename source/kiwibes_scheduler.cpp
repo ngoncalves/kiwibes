@@ -169,6 +169,22 @@ void KiwibesScheduler::unschedule_job(const std::string &name)
   LOG_INFO << "unscheduled job '" << name << "'";        
 }
 
+void KiwibesScheduler::get_all_scheduled_job_names(std::vector<std::string> &jobs)
+{
+  std::lock_guard<std::mutex> lock(qlock);
+  
+  jobs.clear();
+
+  std::vector<KiwibesSchedulerEvent *> &vEvents = Container(events);
+
+  for(unsigned int e = 0; e < vEvents.size(); e++)
+  {
+    if(EVENT_START_JOB ==vEvents[e]->type)
+    {
+      jobs.push_back(std::string(*(vEvents[e]->job_name)));
+    }
+  }
+}
 /*--------------------- Private Functions Definitions ------------------------------*/
 static void scheduler_thread(KiwibesScheduler *scheduler, KiwibesJobsManager *manager,std::mutex *qlock,std::priority_queue<KiwibesSchedulerEvent *> *events)
 {
