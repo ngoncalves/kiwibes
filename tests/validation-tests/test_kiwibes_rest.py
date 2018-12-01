@@ -166,7 +166,79 @@ def test_edit_job():
 	"""
 	Edit an existing job 
 	"""
-	pass 
+	# cannot edit a job which does not exist
+	new_job =  {
+		"program"     : [ "/bin/ls",'-l','-a','-h'],
+		"schedule"    : "* * * * 5 1",
+		"max-runtime" : 1234,
+	}	
+	result = requests.post('http://127.0.0.1:4242/edit_job/does_not_exist',data=new_job)
+	
+	assert 200 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_NAME_UNKNOWN']
+
+	# the JSON data must not be empty
+	result = requests.post('http://127.0.0.1:4242/edit_job/list_home',data={})
+	
+	assert 200 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_EMPTY_REST_REQUEST']
+
+	# cannot edit a job that is running
+	result = requests.post('http://127.0.0.1:4242/start_job/sleep_10')
+	assert 200 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']
+
+	time.sleep(2)
+	result = requests.post('http://127.0.0.1:4242/edit_job/sleep_10',data=new_job)
+	
+	assert 200 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_IS_RUNNING']
+
+	requests.post('http://127.0.0.1:4242/stop_job/sleep_10')
+
+	# change the job parameters
+	result = requests.get('http://127.0.0.1:4242/job/list_home')
+	assert 200 == result.status_code	
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']	
+	before_edit = result.json()
+
+	result = requests.post('http://127.0.0.1:4242/edit_job/list_home',data=new_job)
+	assert 200 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']
+
+	result = requests.get('http://127.0.0.1:4242/job/list_home')
+	assert 200 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']
+
+	assert result.json()["program"]     == new_job["program"]
+	assert result.json()["max-runtime"] == new_job["max-runtime"]
+	assert result.json()["schedule"]    == new_job["schedule"]	
+	assert result.json()["avg-runtime"] == before_edit["avg-runtime"]
+	assert result.json()["var-runtime"] == before_edit["var-runtime"]
+	assert result.json()["status"]      == before_edit["status"]
+	assert result.json()["start-time"]  == before_edit["start-time"]
+	assert result.json()["nbr-runs"]    == before_edit["nbr-runs"]
+
+	# must specify the 'program', 'schedule' and 'max-runtime' parameters
+	after_edit = result.json()
+
+	job = { "param1"      : "this will be ignored",
+	        "status"      : "jumping",
+	        "avg-runtime" : 1.0,
+	        }
+
+	result = requests.post('http://127.0.0.1:4242/edit_job/list_home',data=job)
+	assert 200 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_EMPTY_REST_REQUEST']
+
+	result = requests.get('http://127.0.0.1:4242/job/list_home')
+	assert 200 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']
+
+	for k in after_edit.keys():
+		assert result.json()[k] == after_edit[k]
+
+	assert not "param1" in result.json().keys()
 
 def test_delete_job():
 	"""
@@ -183,7 +255,7 @@ def test_delete_job():
 	assert 200 == result.status_code
 	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']
 
-	time.sleep(1)
+	time.sleep(2)
 
 	result = requests.post('http://127.0.0.1:4242/delete_job/sleep_10')
 	assert 200 == result.status_code
