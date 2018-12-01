@@ -116,7 +116,12 @@ static T_KIWIBES_ERROR parse_command_line(T_CMD_LINE_OPTIONS &options, int argc,
       }
       else
       {
+#ifndef __KIWIBES_UT__
+        /* no error messages if running unit tests, because it confuses
+           the output
+         */
         std::cerr << "[ERROR] cannot parse option: " << argv[a] << std::endl;
+#endif
         error = ERROR_CMDLINE_PARSE;    
         break;
       }
@@ -132,12 +137,16 @@ static T_KIWIBES_ERROR validate_command_line(T_CMD_LINE_OPTIONS &options)
 
   if(2 < options.log_level)
   {
+#ifndef __KIWIBES_UT__    
     std::cerr << "[ERROR] invalid log level: " << options.log_level;
+#endif
     error = ERROR_CMDLINE_INV_LOG_LEVEL;
   }
   else if(100 < options.log_max_size)
   {
+#ifndef __KIWIBES_UT__
     std::cerr << "[ERROR] invalid log maxium size: " << options.log_max_size;
+#endif
     error = ERROR_CMDLINE_INV_LOG_MAX_SIZE; 
   }
   else
@@ -148,7 +157,9 @@ static T_KIWIBES_ERROR validate_command_line(T_CMD_LINE_OPTIONS &options)
     
     if(0 != stat(options.home->c_str(),&path))
     {
+#ifndef __KIWIBES_UT__
       std::cerr << "[ERROR] home folder does not exist: " << *(options.home) << std::endl;
+#endif
       error = ERROR_CMDLINE_INV_HOME;
     }
 #endif
