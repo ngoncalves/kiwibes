@@ -35,7 +35,7 @@ TEST_UTIL     	 := ../util
 # Build Tools
 #----------------------------------------------------------------------------
 CC       := g++
-OPTIONS  := -DCRON_USE_LOCAL_TIME
+OPTIONS  := -DCRON_USE_LOCAL_TIME -D__KIWIBES_UT__
 INLCUDES := -I $(SOURCE_TEST) -I $(SOURCE_3RD_PARTY) -I $(TEST_UTIL)
 CFLAGS   := -std=c++11 -Wall -Werror -g $(OPTIONS) $(INLCUDES)
 LDFLAGS  := -pthread
