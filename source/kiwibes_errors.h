@@ -41,7 +41,7 @@ typedef enum{
   ERROR_JOB_DESCRIPTION_INVALID,  /* the job JSON description is invalid */
   ERROR_EMPTY_REST_REQUEST,       /* REST request data is empty */
   ERROR_JOB_IS_RUNNING,           /* job is running */
-  ERROR_JOB_IS_NOT_RUNNING,       /* job is running */
+  ERROR_JOB_IS_NOT_RUNNING,       /* job is not running */
   ERROR_JOB_SCHEDULE_INVALID,     /* the job schedule is invalid */
   ERROR_PROCESS_LAUNCH_FAILED,    /* failed to launch the process for this job */
 } T_KIWIBES_ERROR;

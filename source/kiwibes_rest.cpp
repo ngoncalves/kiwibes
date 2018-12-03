@@ -125,15 +125,15 @@ void setup_rest_interface(httplib::Server *http, KiwibesJobsManager *manager, Ki
   pManager   = manager;  
 
   /* setup the HTTP REST route handlers */
-  http->Post("/start_job/([a-zA-Z_0-9]+)",post_start_job);
-  http->Post("/stop_job/([a-zA-Z_0-9]+)",post_stop_job);
-  http->Post("/create_job/([a-zA-Z_0-9]+)",post_create_job);    
-  http->Post("/edit_job/([a-zA-Z_0-9]+)",post_edit_job);    
-  http->Post("/delete_job/([a-zA-Z_0-9]+)",post_delete_job);    
-  http->Get("/jobs_list",get_jobs_list);
-  http->Get("/scheduled_jobs",get_scheduled_jobs);
-  http->Get("/job/([a-zA-Z_0-9]+)",get_get_job);    
-
+  http->Post("/job/start/([a-zA-Z_0-9]+)",post_start_job);
+  http->Post("/job/stop/([a-zA-Z_0-9]+)",post_stop_job);
+  http->Post("/job/create/([a-zA-Z_0-9]+)",post_create_job);    
+  http->Post("/job/edit/([a-zA-Z_0-9]+)",post_edit_job);    
+  http->Post("/job/delete/([a-zA-Z_0-9]+)",post_delete_job);    
+  http->Get("/job/details/([a-zA-Z_0-9]+)",get_get_job);
+  http->Get("/jobs/list",get_jobs_list);
+  http->Get("/jobs/scheduled",get_scheduled_jobs);
+      
   /* setup the logger and the error handler */
   http->set_logger(rest_logger);
   http->set_error_handler(rest_error_handler);
