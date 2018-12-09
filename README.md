@@ -218,7 +218,7 @@ There are three sets of tests:
  - stress tests, also written in Python
 
 All types of tests are targets of the Makefile provided. The Python tests require
-Python and the pytest module installed. The stress tests also need valgrind, which
+Python and the modules requests and pytest. The stress tests also need valgrind, which
 measures the server performance.
 
 ## Contributing

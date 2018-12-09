@@ -26,11 +26,12 @@
 # Directory organization
 #----------------------------------------------------------------------------
 
-SOURCE := source
-TESTS  := tests
-BUILD  := build
-UNIT_TESTS := $(TESTS)/unit-tests
-VLD_TESTS  := $(TESTS)/validation-tests
+SOURCE 			:= source
+TESTS  			:= tests
+BUILD  			:= build
+UNIT_TESTS 		:= $(TESTS)/unit-tests
+VLD_TESTS  		:= $(TESTS)/validation-tests
+STRESS_TESTS	:= $(TESTS)/stress-tests
 
 #----------------------------------------------------------------------------
 # Targets
@@ -48,6 +49,7 @@ help:
 	@echo '  kiwibes      	: build the Kiwibes Automation Server'
 	@echo '  ut-kiwibes   	: build and run the unit tests for Kiwibes'
 	@echo '  vld-kiwibes	: run the validation tests for Kiwibes'
+	@echo '  stress-kiwibes	: run the stress tests for Kiwibes'
 	@echo '  clean        	: clear the build directory'
 	@echo '  help         	: this text'
 	@echo '--------------------------------------------------------------------------'
@@ -60,8 +62,11 @@ ut-kiwibes:
 	make -C $(UNIT_TESTS)
 	make -C $(UNIT_TESTS) run
 
-vld-kiwibes: kiwibes
+vld-kiwibes:
 	-python -m pytest -v $(VLD_TESTS) 
+
+stress-kiwibes: kiwibes
+	-python -m pytest -v $(STRESS_TESTS)
 
 .PHONY: clean
 
