@@ -40,6 +40,8 @@
   #include <wait.h>
 #endif 
 
+#include <iostream>
+
 /*----------------- Private Functions Declarations -----------------------------*/
 /** Watcher Thread 
 
@@ -123,21 +125,31 @@ T_KIWIBES_ERROR KiwibesJobsManager::stop_job(const std::string &name)
   std::lock_guard<std::mutex> lock(jobs_lock);
 
   T_KIWIBES_ERROR error = ERROR_NO_ERROR;
+  nlohmann::json  job;
 
-  std::map<std::string,T_PROCESS_HANDLER>::iterator iter = active_jobs.find(name);
+  error = database->get_job_description(job,name);
 
-  if(active_jobs.end() == iter)
+  if(ERROR_NO_ERROR != error)
   {
-    LOG_WARN << "Job '" << name << "' is not running, not stopping it";
-    error = ERROR_JOB_IS_NOT_RUNNING;
+      LOG_WARN << "No job with name '" << name << "' was found in the database";  
   }
   else
   {
+    std::map<std::string,T_PROCESS_HANDLER>::iterator iter = active_jobs.find(name);
+
+    if(active_jobs.end() == iter)
+    {
+      LOG_WARN << "Job '" << name << "' is not running, not stopping it";
+      error = ERROR_JOB_IS_NOT_RUNNING;
+    }
+    else
+    {
 #if defined(__linux__)
-    /* kill the child process and let the watcher thread to handle its exit */
-    LOG_INFO << "Killing process for job '" << name << "'";
-    kill((*iter).second,SIGKILL);
+      /* kill the child process and let the watcher thread to handle its exit */
+      LOG_INFO << "Killing process for job '" << name << "'";
+      kill((*iter).second,SIGKILL);
 #endif    
+    }
   }
 
   return error;
@@ -169,15 +181,18 @@ T_PROCESS_HANDLER KiwibesJobsManager::launch_job(nlohmann::json &job)
     /* child process, start the process with the given command line */
     std::vector<std::string> program(job["program"].get<std::vector<std::string> >());
 
+    std::cout << "args:" << std::endl;
     char **arguments = (char **)malloc(sizeof(char *)*(1 + program.size()));
     for(unsigned int a = 0; a < program.size(); a++)
     {
+      std::cout << (char *)program[a].c_str() << std::endl ; 
       arguments[a] = (char *)program[a].c_str();
     }
     arguments[program.size()] = NULL;
 
     execv(program[0].c_str(),(char *const *)arguments);
 
+    std::cout << "ERROR(" << errno << " ) " << strerror(errno) << std::endl;
     /* should not reach here */
     return INVALID_PROCESS_HANDLE;
   }

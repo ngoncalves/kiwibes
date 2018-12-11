@@ -62,18 +62,6 @@ def clean_home_folder(home=KIWIBES_HOME):
 		if fname.endswith(".json") or fname.endswith(".txt"):
 			os.remove(os.path.join(home,fname))
 
-def post_mortem_backup(): 
-	"""
-	Rename the log and database files to be kiwibes_<datetime>.{json,log}
-	"""
-	if os.path.isfile(os.path.join(KIWIBES_HOME,"kiwibes.log.1.txt")):
-		backup = "kiwibes_%s.log" % (datetime.datetime.now().strftime("%Y%B%dT%H%M%S"))
-		os.rename(os.path.join(KIWIBES_HOME,"kiwibes.log.1.txt"),os.path.join(KIWIBES_HOME,backup))
-
-	if os.path.isfile(os.path.join(KIWIBES_HOME,"kiwibes.json")):
-		backup = "kiwibes_%s.db" % (datetime.datetime.now().strftime("%Y%B%dT%H%M%S"))
-		os.rename(os.path.join(KIWIBES_HOME,"kiwibes.json"),os.path.join(KIWIBES_HOME,backup))
-
 def copy_database(fname): 
 	"""
 	Copy the example database to the home folder
@@ -97,17 +85,18 @@ def launch_blocking(args):
 	"""
 	return subprocess.call([KIWIBES_BIN] + args,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
 
-def launch_non_blocking(args):
+def launch_non_blocking(args,binary=KIWIBES_BIN):
 	"""
 	Start the Kiwibes server process in the background, with
 	the given arguments.
 
 	Arguments:
-		- args : list of arguments
+		- args   : list of arguments
+		- binary : program to launch, defaults to the Kiwibes server 
 
 	Returns:
 		- handler for the process that is running
 	"""
-	handler = subprocess.Popen([KIWIBES_BIN] + args,stdout=subprocess.PIPE,stderr=subprocess.PIPE)	
+	handler = subprocess.Popen([binary] + args,stdout=subprocess.PIPE,stderr=subprocess.PIPE)	
 	time.sleep(3)
 	return handler 

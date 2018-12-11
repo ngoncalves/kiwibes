@@ -18,5 +18,15 @@
 		"status"      : "stopped",
 		"start-time"  : 0,
 		"nbr-runs"    : 0
+	},
+	"hello_world" : {
+		"program"     : [ "/bin/bash", "-c", "sleep 5 && touch ./build/hello_world.txt"],
+		"max-runtime" : 7,
+		"avg-runtime" : 0.0,
+		"var-runtime" : 0.0,
+		"schedule"    : "",
+		"status"      : "stopped",
+		"start-time"  : 0,
+		"nbr-runs"    : 0
 	}
 }

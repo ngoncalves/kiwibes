@@ -31,14 +31,9 @@ TESTS  			:= tests
 BUILD  			:= build
 UNIT_TESTS 		:= $(TESTS)/unit-tests
 VLD_TESTS  		:= $(TESTS)/validation-tests
-STRESS_TESTS	:= $(TESTS)/stress-tests
 
 #----------------------------------------------------------------------------
 # Targets
-#   - help         : show information about the available targets
-#   - kiwibes      : build the Kiwibes Automation Server 
-#   - ut-kiwibes   : build and run the unit tests for Kiwibes
-#   - vld-kiwibes  : run the validation tests for Kiwibes
 #----------------------------------------------------------------------------
 
 all: help 
@@ -62,11 +57,12 @@ ut-kiwibes:
 	make -C $(UNIT_TESTS)
 	make -C $(UNIT_TESTS) run
 
-vld-kiwibes:
-	-python -m pytest -v $(VLD_TESTS) 
+vld-kiwibes: kiwibes
+	-python -m pytest -v $(VLD_TESTS)/test_kiwibes_rest_jobs.py  
+	-python -m pytest -v $(VLD_TESTS)/test_kiwibes_startup_behavior.py  
 
 stress-kiwibes: kiwibes
-	-python -m pytest -v $(STRESS_TESTS)
+	-python -m pytest -v $(VLD_TESTS)/test_kiwibes_stress.py
 
 .PHONY: clean
 

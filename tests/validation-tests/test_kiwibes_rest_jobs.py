@@ -26,6 +26,7 @@ import requests
 import json
 import pytest 
 import time 
+import os 
 
 @pytest.fixture(autouse=True)
 def setup_cleanup():
@@ -62,7 +63,7 @@ def test_get_all_job_names():
 	result = requests.get('http://127.0.0.1:4242/jobs/list')
 
 	assert 200 == result.status_code
-	assert sorted(['sleep_10','list_home']) == sorted(result.json())
+	assert sorted(['hello_world','sleep_10','list_home']) == sorted(result.json())
 
 def test_get_scheduled_jobs():
 	"""
@@ -339,3 +340,104 @@ def test_post_delete_job():
 
 	result = requests.get('http://127.0.0.1:4242/jobs/list')
 	assert not 'list_home' in result.json()
+
+def test_start_job():
+	"""
+	Start a job 
+	"""
+	# cannot start a job which does not exist
+	result = requests.post('http://127.0.0.1:4242/job/start/does_not_exist')
+	
+	assert 200 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_NAME_UNKNOWN']
+
+	# start a job and verify it has started
+	assert False == os.path.isfile(os.path.join(util.KIWIBES_HOME,"hello_world.txt"))
+
+	result = requests.post('http://127.0.0.1:4242/job/start/hello_world')
+	
+	assert 200 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']
+
+	result = requests.get('http://127.0.0.1:4242/job/details/hello_world')
+	assert 200 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']
+
+	assert result.json()["status"] == "running"
+	assert result.json()["start-time"] > 0 
+
+	# cannot start a job that is already running
+	result = requests.post('http://127.0.0.1:4242/job/start/hello_world')
+	
+	assert 200 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_IS_RUNNING']	
+
+	# wait until the job has stopped
+	time.sleep(7.0)
+
+	result = requests.get('http://127.0.0.1:4242/job/details/hello_world')
+	assert 200 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']
+
+	# not checking runtime statistics because it depends heavily on
+	# the system load and one sample is not enough to meaningfully
+	# compute the average and the variance
+	assert result.json()["status"]     == "stopped"
+	assert result.json()["start-time"] == 0.0
+	assert result.json()["nbr-runs"]   == 1
+
+	# verify that the job actually ran
+	assert True == os.path.isfile(os.path.join(util.KIWIBES_HOME,"hello_world.txt"))
+	
+def test_stop_job():
+	"""
+	Stop a job 
+	"""
+	# cannot stop a job which does not exist
+	result = requests.post('http://127.0.0.1:4242/job/stop/does_not_exist')
+	
+	assert 200 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_NAME_UNKNOWN']
+
+	# cannot stop a job that is not running
+	result = requests.post('http://127.0.0.1:4242/job/stop/sleep_10')
+	
+	assert 200 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_IS_NOT_RUNNING']	
+
+	# start a job, then stopp it
+	assert False == os.path.isfile(os.path.join(util.KIWIBES_HOME,"hello_world.txt"))
+
+	result = requests.post('http://127.0.0.1:4242/job/start/hello_world')
+	
+	assert 200 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']
+
+	result = requests.get('http://127.0.0.1:4242/job/details/hello_world')
+	assert 200 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']
+
+	assert result.json()["status"] == "running"
+	assert result.json()["start-time"] > 0
+
+	time.sleep(1.0)
+
+	result = requests.post('http://127.0.0.1:4242/job/stop/hello_world')
+	
+	assert 200 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']
+
+	# wait a little for the job thread to exit, then query the job details
+	time.sleep(1.0)
+
+	result = requests.get('http://127.0.0.1:4242/job/details/hello_world')
+	assert 200 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']
+
+	assert result.json()["avg-runtime"] < 10.0
+	assert result.json()["status"]      == "stopped"
+	assert result.json()["start-time"]  == 0.0
+	assert result.json()["nbr-runs"]    == 1
+
+	# verify that the job did not full ran
+	assert False == os.path.isfile(os.path.join(util.KIWIBES_HOME,"hello_world.txt"))
