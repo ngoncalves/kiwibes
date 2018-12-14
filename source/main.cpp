@@ -28,6 +28,7 @@
 #include <string>
 
 #include "kiwibes_database.h"
+#include "kiwibes_data_store.h"
 #include "kiwibes_jobs_manager.h"
 #include "kiwibes_scheduler.h"
 #include "kiwibes_errors.h"
@@ -56,6 +57,7 @@
 /** The Kiwibes components
  */
 static KiwibesDatabase    *database       = nullptr;    /* database interface */
+static KiwibesDataStore   *data_store     = nullptr;    /* data store interface */
 static KiwibesJobsManager *jobs_manager   = nullptr;    /* jobs execution manager */
 static KiwibesScheduler   *jobs_scheduler = nullptr;    /* jobs scheduler */
 static httplib::Server    *http           = nullptr;    /* HTTP server, for the REST interface */  
@@ -165,6 +167,11 @@ static void cleanup(void)
     delete jobs_manager;
   }
 
+  if(nullptr != data_store)
+  {
+    delete data_store;
+  }
+
   if(nullptr != database)
   {
     database->save();
@@ -222,6 +229,7 @@ static T_KIWIBES_ERROR initialize_kiwibes(T_CMD_LINE_OPTIONS &options)
   else
   {
     /* create the other components */
+    data_store     = new KiwibesDataStore(options.data_store_size);
     jobs_manager   = new KiwibesJobsManager(database);
     jobs_scheduler = new KiwibesScheduler(database,jobs_manager);
     http           = new httplib::Server;
@@ -241,7 +249,7 @@ static T_KIWIBES_ERROR initialize_kiwibes(T_CMD_LINE_OPTIONS &options)
     }
   
     /* setup the REST interface */
-    setup_rest_interface(http,jobs_manager,jobs_scheduler,database);
+    setup_rest_interface(http,jobs_manager,jobs_scheduler,database,data_store);
 
     /* initialization is complete */
     std::cout << "[INFO] the Kiwibes server is initialized" << std::endl;

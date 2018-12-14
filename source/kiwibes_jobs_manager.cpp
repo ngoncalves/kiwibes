@@ -40,8 +40,6 @@
   #include <wait.h>
 #endif 
 
-#include <iostream>
-
 /*----------------- Private Functions Declarations -----------------------------*/
 /** Watcher Thread 
 
@@ -181,18 +179,15 @@ T_PROCESS_HANDLER KiwibesJobsManager::launch_job(nlohmann::json &job)
     /* child process, start the process with the given command line */
     std::vector<std::string> program(job["program"].get<std::vector<std::string> >());
 
-    std::cout << "args:" << std::endl;
     char **arguments = (char **)malloc(sizeof(char *)*(1 + program.size()));
     for(unsigned int a = 0; a < program.size(); a++)
     {
-      std::cout << (char *)program[a].c_str() << std::endl ; 
       arguments[a] = (char *)program[a].c_str();
     }
     arguments[program.size()] = NULL;
 
     execv(program[0].c_str(),(char *const *)arguments);
 
-    std::cout << "ERROR(" << errno << " ) " << strerror(errno) << std::endl;
     /* should not reach here */
     return INVALID_PROCESS_HANDLE;
   }

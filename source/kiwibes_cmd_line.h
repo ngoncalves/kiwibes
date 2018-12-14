@@ -36,10 +36,11 @@
 /** Command line options
  */
 typedef struct{
-  std::unique_ptr<std::string> home;          /* the full path to the hoem folder */
-  unsigned int                 log_level;     /* the log level, must be in the range [0,2] */
-  unsigned int                 log_max_size;  /* the log maximum size in MB, must be less than 100 */
-  unsigned int                 http_port;     /* the HTTP listening port */
+  std::unique_ptr<std::string> home;              /* the full path to the hoem folder */
+  unsigned int                 log_level;         /* the log level, must be in the range [0,2] */
+  unsigned int                 log_max_size;      /* the log maximum size in MB, must be less than 100 */
+  unsigned int                 http_port;         /* the HTTP listening port */
+  unsigned int                 data_store_size;   /* maximum size of the data store in MB, defaults to 10 */ 
 } T_CMD_LINE_OPTIONS;
 
 /*-------------------------- Public Function Declarations -------------------------------*/

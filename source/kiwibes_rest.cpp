@@ -33,6 +33,7 @@
 /** Private pointers to the Kiwibes components
  */
 static KiwibesDatabase    *pDatabase;
+static KiwibesDataStore   *pDataStore;
 static KiwibesJobsManager *pManager;
 static KiwibesScheduler   *pScheduler;
 
@@ -116,11 +117,40 @@ static void rest_error_handler(const httplib::Request& req, httplib::Response& r
  */
 static bool read_job_parameters(nlohmann::json &params, const httplib::Request &req);
 
+/** REST: Write a piece of data
+
+  @param req  the incoming HTTP request
+  @param res  the outgoing HTTP response
+ */
+static void post_write_data(const httplib::Request& req, httplib::Response& res);
+
+/** REST: Clear a piece of data
+
+  @param req  the incoming HTTP request
+  @param res  the outgoing HTTP response
+ */
+static void post_clear_data(const httplib::Request& req, httplib::Response& res);
+
+/** REST: Clear all stored data
+
+  @param req  the incoming HTTP request
+  @param res  the outgoing HTTP response
+ */
+static void post_clear_all_data(const httplib::Request& req, httplib::Response& res);
+
+/** REST: Get data
+
+  @param req  the incoming HTTP request
+  @param res  the outgoing HTTP response
+ */
+static void get_read_data(const httplib::Request& req, httplib::Response& res);
+
 /*--------------------------Public Function Definitions -------------------------------*/
-void setup_rest_interface(httplib::Server *http, KiwibesJobsManager *manager, KiwibesScheduler *scheduler, KiwibesDatabase *database)
+void setup_rest_interface(httplib::Server *http, KiwibesJobsManager *manager, KiwibesScheduler *scheduler, KiwibesDatabase *database, KiwibesDataStore *store)
 {
   /* setup the private pointers */
   pDatabase  = database; 
+  pDataStore = store; 
   pScheduler = scheduler;
   pManager   = manager;  
 
@@ -130,7 +160,13 @@ void setup_rest_interface(httplib::Server *http, KiwibesJobsManager *manager, Ki
   http->Post("/job/create/([a-zA-Z_0-9]+)",post_create_job);    
   http->Post("/job/edit/([a-zA-Z_0-9]+)",post_edit_job);    
   http->Post("/job/delete/([a-zA-Z_0-9]+)",post_delete_job);    
-  http->Get("/job/details/([a-zA-Z_0-9]+)",get_get_job);
+  http->Get( "/job/details/([a-zA-Z_0-9]+)",get_get_job);
+
+  http->Post("/data/write/([a-zA-Z_0-9]+)",post_write_data);    
+  http->Post("/data/clear/([a-zA-Z_0-9]+)",post_clear_data);    
+  http->Post("/data/clear_all",post_clear_all_data);    
+  http->Get( "/data/read/([a-zA-Z_0-9]+)",get_read_data);    
+  
   http->Get("/jobs/list",get_jobs_list);
   http->Get("/jobs/scheduled",get_scheduled_jobs);
       
@@ -142,36 +178,67 @@ void setup_rest_interface(httplib::Server *http, KiwibesJobsManager *manager, Ki
 /*--------------------------Private Function Definitions -------------------------------*/
 static void post_start_job(const httplib::Request& req, httplib::Response& res)
 {
-  nlohmann::json result;
+  T_KIWIBES_ERROR error = pManager->start_job(req.matches[1]);
 
-  result["error"] = pManager->start_job(req.matches[1]);
-
-  res.set_content(result.dump(),"application/json");
+  if(ERROR_JOB_NAME_UNKNOWN == error)
+  {
+    res.status = 404;   /* Not found */
+    res.set_content("Job not found","text/plain");
+  }
+  else if(ERROR_JOB_IS_RUNNING == error)
+  {
+    res.status = 405; /* Not allowed */
+    res.set_content("Job is already running","text/plain");
+  }
+  else if(ERROR_PROCESS_LAUNCH_FAILED == 500)
+  {
+    res.status = 500;   /* Generic server error */
+    res.set_content("Failed to start job","text/plain"); 
+  }
+  else
+  {
+    res.status = 200;
+    res.set_content("","text/plain");
+  }
 }
 
 static void post_stop_job(const httplib::Request& req, httplib::Response& res)
 {
-  nlohmann::json result;
+  T_KIWIBES_ERROR error = pManager->stop_job(req.matches[1]);
 
-  result["error"] = pManager->stop_job(req.matches[1]);
-
-  res.set_content(result.dump(),"application/json");
+  if(ERROR_JOB_NAME_UNKNOWN == error)
+  {
+    res.status = 404;   /* Not found */
+    res.set_content("Job not found","text/plain");
+  }
+  else if(ERROR_JOB_IS_NOT_RUNNING == error)
+  {
+    res.status = 405;   /* Not allowed */
+    res.set_content("Job is not running","text/plain");
+  }
+  else
+  {
+    res.status = 200;
+    res.set_content("","text/plain");
+  }
 }
 
 static void post_create_job(const httplib::Request& req, httplib::Response& res)
 {
-  nlohmann::json result;
   nlohmann::json params; 
+
+  res.status = 200; 
 
   if(false == read_job_parameters(params,req))
   {
-    result["error"] = ERROR_JOB_DESCRIPTION_INVALID;
+    res.status = 400;   /* Bad request */
+    res.set_content("Invalid job description","text/plain");
   }
   else
   {
-    result["error"] = pDatabase->create_job(req.matches[1],params);
+    T_KIWIBES_ERROR error = pDatabase->create_job(req.matches[1],params);
   
-    if(ERROR_NO_ERROR == result["error"].get<T_KIWIBES_ERROR>())
+    if(ERROR_NO_ERROR == error)
     {
       /* if the job was created and can be scheduled, then scheduled it */
       std::string schedule = params["schedule"].get<std::string>();
@@ -185,28 +252,41 @@ static void post_create_job(const httplib::Request& req, httplib::Response& res)
       }
       else if((0 < schedule.size()) && (false == cron.is_valid()))
       {
-        result["error"] = ERROR_JOB_SCHEDULE_INVALID;       
+        /* invalid schedule, delete the job */
+        pDatabase->delete_job(req.matches[1]);
+        res.status = 400;   /* Bad request */
+        res.set_content("Invalid job schedule","text/plain");       
       }
     }
+    else if(ERROR_JOB_DESCRIPTION_INVALID == error)
+    {
+      res.status = 400; /* Bad request */
+      res.set_content("Invalid job schedule","text/plain");       
+    }
+    else if(ERROR_JOB_NAME_TAKEN == error)
+    {
+      res.status = 409; /* conflict */
+      res.set_content("Job name already exists","text/plain");        
+    }
   } 
-
-  res.set_content(result.dump(),"application/json");
 }
 
 static void post_edit_job(const httplib::Request& req, httplib::Response& res)
 {
-  nlohmann::json result;
   nlohmann::json params; 
+
+  res.status = 200; 
 
   if(false == read_job_parameters(params,req))
   {
-    result["error"] = ERROR_EMPTY_REST_REQUEST;
+    res.status = 400;   /* Bad request */
+    res.set_content("Invalid job description","text/plain");
   }
   else
   {
-    result["error"] = pDatabase->edit_job(req.matches[1],params);
+    T_KIWIBES_ERROR error = pDatabase->edit_job(req.matches[1],params);
   
-    if(ERROR_NO_ERROR == result["error"].get<T_KIWIBES_ERROR>())
+    if(ERROR_NO_ERROR == error)
     {
       /* if the job was edited and can be scheduled, then scheduled it */
       std::string schedule = params["schedule"].get<std::string>();
@@ -223,37 +303,45 @@ static void post_edit_job(const httplib::Request& req, httplib::Response& res)
       }
       else if((0 < schedule.size()) && (false == cron.is_valid()))
       {
-        result["error"] = ERROR_JOB_SCHEDULE_INVALID;  
+        /* invalid schedule, delete the job */
+        pDatabase->delete_job(req.matches[1]);
+        res.status = 400;   /* Bad request */
+        res.set_content("Invalid job schedule","text/plain");       
       }
     }
+    else if(ERROR_JOB_NAME_UNKNOWN == error)
+    {
+      res.status = 404; /* Not found */
+      res.set_content("Unknown job name","text/plain");         
+    }
+    else if(ERROR_JOB_IS_RUNNING == error)
+    {
+      res.status = 405; /* Not allowed */
+      res.set_content("Cannot edit while job is running","text/plain");         
+    }
   }
-    
-  res.set_content(result.dump(),"application/json");
 }
 
 static void post_delete_job(const httplib::Request& req, httplib::Response& res)
 {
-  nlohmann::json result;
+  T_KIWIBES_ERROR error = pDatabase->delete_job(req.matches[1]);
 
-  result["error"] = pDatabase->delete_job(req.matches[1]);
-
-  if(ERROR_NO_ERROR == result["error"].get<T_KIWIBES_ERROR>())
+  if(ERROR_NO_ERROR == error)
   {
     /* unschedule the job, if it was previously scheduled */
     pScheduler->unschedule_job(req.matches[1]);  
   }
-
-  res.set_content(result.dump(),"application/json");
 }
 
 static void get_get_job(const httplib::Request& req, httplib::Response& res)
 {
   nlohmann::json job; 
-  T_KIWIBES_ERROR error = pDatabase->get_job_description(job,req.matches[1]);
-
-  job["error"] = error;
-
-  res.set_content(job.dump(),"application/json");
+  
+  if(ERROR_JOB_NAME_UNKNOWN == pDatabase->get_job_description(job,req.matches[1]))
+  {
+    res.status = 404;   /* not found */
+    res.set_content("Unknown job name","text/plain");
+  }
 }
 
 static void get_jobs_list(const httplib::Request& req, httplib::Response& res)
@@ -332,4 +420,69 @@ static bool read_job_parameters(nlohmann::json &params, const httplib::Request &
   }
 
   return success; 
+}
+
+static void post_write_data(const httplib::Request& req, httplib::Response& res)
+{
+  T_KIWIBES_ERROR error = ERROR_NO_ERROR;
+  std::string     value; 
+
+  if(true == req.has_param("value"))
+  {
+    error = pDataStore->write(req.matches[1],req.get_param_value("value"));
+  }
+
+  if(ERROR_EMPTY_REST_REQUEST == error) 
+  {
+    res.status = 400; /* Bad request */
+    res.set_content("No value received","text/plain");
+  }
+  else if(ERROR_DATA_KEY_TAKEN == error)
+  {
+    res.status = 409; /* Conflict */
+    res.set_content("Key already exists","text/plain"); 
+  }
+  else if(ERROR_DATA_STORE_FULL == error)
+  {
+    res.status = 507; /* Insufficient storage space */
+    res.set_content("Data storage is full","text/plain");  
+  }
+  else
+  {
+    res.status = 200;
+  }
+}
+
+static void post_clear_data(const httplib::Request& req, httplib::Response& res)
+{
+  nlohmann::json result;
+
+  result["error"] = pDataStore->clear(req.matches[1]);
+
+  res.set_content(result.dump(),"application/json");
+}
+
+static void post_clear_all_data(const httplib::Request& req, httplib::Response& res)
+{
+  nlohmann::json result;
+  result["entries"] = pDataStore->clear_all();
+
+  res.set_content(result.dump(),"application/json");
+}
+
+static void get_read_data(const httplib::Request& req, httplib::Response& res)
+{
+  std::string value; 
+  T_KIWIBES_ERROR error = pDataStore->read(value,req.matches[1]);
+
+  if(ERROR_DATA_KEY_UNKNOWN == error)
+  {
+    res.status = 404;   /* not found */
+    res.set_content("Key not found","text/html"); 
+  }
+  else
+  {
+    res.status = 200; /* ok */
+    res.set_content(value,"text/plain"); 
+  } 
 }

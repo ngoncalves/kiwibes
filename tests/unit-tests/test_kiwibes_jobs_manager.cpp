@@ -111,7 +111,7 @@ void test_jobs_manager_stop_job(void)
   ASSERT(ERROR_NO_ERROR == database.load("./test_jobs.json"));
 
   /* attempt to stop a job that does not exist */
-  ASSERT(ERROR_JOB_IS_NOT_RUNNING == manager.stop_job("my job"));  
+  ASSERT(ERROR_JOB_NAME_UNKNOWN == manager.stop_job("my job"));  
 
   /* attempt to stop a job that is not running */
   ASSERT(ERROR_JOB_IS_NOT_RUNNING == manager.stop_job("sleep_2"));  

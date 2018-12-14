@@ -67,6 +67,7 @@ void test_parse_and_validate_command_line(void)
       "-l","2",
       "-s","100",
       "-p","31415",
+      "-d","3",
       NULL,
     };
     int argc = sizeof(argv)/sizeof(char *) - 1;
@@ -76,6 +77,7 @@ void test_parse_and_validate_command_line(void)
     ASSERT(31415 == options.http_port);    
     ASSERT(100 == options.log_max_size);    
     ASSERT(2 == options.log_level);    
+    ASSERT(3 == options.data_store_size);    
   }
 
   /* home folder does not exist */
@@ -131,6 +133,20 @@ void test_parse_and_validate_command_line(void)
     int argc = sizeof(argv)/sizeof(char *) - 1;
     
     ASSERT(ERROR_CMDLINE_INV_LOG_MAX_SIZE == parse_and_validate_command_line(options,argc,(char **)argv));    
+  }
+
+  /* data store maximum size is invalid */
+  {
+    T_CMD_LINE_OPTIONS options;
+    const char *argv[] = {
+      "/bin/prog",
+      "./",
+      "-d","101",
+      NULL,
+    };
+    int argc = sizeof(argv)/sizeof(char *) - 1;
+    
+    ASSERT(ERROR_CMDLINE_INV_DATA_STORE_MAX_SIZE == parse_and_validate_command_line(options,argc,(char **)argv));    
   }
 
   /* option without value */

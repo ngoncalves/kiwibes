@@ -28,22 +28,26 @@
 #define __KIWIBES_ERRORS_H__
 
 typedef enum{
-  ERROR_NO_ERROR,                 /* not error */
-  ERROR_CMDLINE_PARSE,            /* failed to parse the command line */
-  ERROR_CMDLINE_INV_LOG_LEVEL,    /* incorrect log level */
-  ERROR_CMDLINE_INV_LOG_MAX_SIZE, /* log maximum size if too large */
-  ERROR_CMDLINE_INV_HOME,         /* home folder does not exist */
-  ERROR_NO_DATABASE_FILE,         /* the database file does not exist */ 
-  ERROR_JSON_PARSE_FAIL,          /* failed to parse the JSON database file */ 
-  ERROR_MAIN_INTERRUPTED,         /* caught CTRL-C */ 
-  ERROR_JOB_NAME_UNKNOWN,         /* unknown job name */
-  ERROR_JOB_NAME_TAKEN,           /* the job name is already taken */ 
-  ERROR_JOB_DESCRIPTION_INVALID,  /* the job JSON description is invalid */
-  ERROR_EMPTY_REST_REQUEST,       /* REST request data is empty */
-  ERROR_JOB_IS_RUNNING,           /* job is running */
-  ERROR_JOB_IS_NOT_RUNNING,       /* job is not running */
-  ERROR_JOB_SCHEDULE_INVALID,     /* the job schedule is invalid */
-  ERROR_PROCESS_LAUNCH_FAILED,    /* failed to launch the process for this job */
+  ERROR_NO_ERROR,                         /* not error */
+  ERROR_CMDLINE_PARSE,                    /* failed to parse the command line */
+  ERROR_CMDLINE_INV_LOG_LEVEL,            /* incorrect log level */
+  ERROR_CMDLINE_INV_LOG_MAX_SIZE,         /* log maximum size if too large */
+  ERROR_CMDLINE_INV_DATA_STORE_MAX_SIZE,  /* log maximum size if too large */
+  ERROR_CMDLINE_INV_HOME,                 /* home folder does not exist */
+  ERROR_NO_DATABASE_FILE,                 /* the database file does not exist */ 
+  ERROR_JSON_PARSE_FAIL,                  /* failed to parse the JSON database file */ 
+  ERROR_MAIN_INTERRUPTED,                 /* caught CTRL-C */ 
+  ERROR_JOB_NAME_UNKNOWN,                 /* unknown job name */
+  ERROR_JOB_NAME_TAKEN,                   /* the job name is already taken */ 
+  ERROR_JOB_DESCRIPTION_INVALID,          /* the job JSON description is invalid */
+  ERROR_EMPTY_REST_REQUEST,               /* REST request data is empty */
+  ERROR_JOB_IS_RUNNING,                   /* job is running */
+  ERROR_JOB_IS_NOT_RUNNING,               /* job is not running */
+  ERROR_JOB_SCHEDULE_INVALID,             /* the job schedule is invalid */
+  ERROR_PROCESS_LAUNCH_FAILED,            /* failed to launch the process for this job */
+  ERROR_DATA_KEY_TAKEN,                   /* the name of the data already exists */
+  ERROR_DATA_KEY_UNKNOWN,                 /* the name of the data does not exist */
+  ERROR_DATA_STORE_FULL,                  /* no more space in the data store */ 
 } T_KIWIBES_ERROR;
 
 #endif

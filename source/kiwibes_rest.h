@@ -28,6 +28,7 @@
 #define __KIWIBES_REST_H__
 
 #include "kiwibes_database.h"
+#include "kiwibes_data_store.h"
 #include "kiwibes_jobs_manager.h"
 #include "kiwibes_scheduler.h"
 
@@ -40,9 +41,11 @@
   @param manager    pointer to the Kiwibes jobs manager
   @param scheduler  pointer to the Kiwibes jobs scheduler
   @param database   pointer to the Kiwibes database interface 
+  @param database   pointer to the Kiwibes data store interface 
 */
 void setup_rest_interface(httplib::Server *http,
                           KiwibesJobsManager *manager,
                           KiwibesScheduler *scheduler,
-                          KiwibesDatabase *database);
+                          KiwibesDatabase *database,
+                          KiwibesDataStore *store);
 #endif
