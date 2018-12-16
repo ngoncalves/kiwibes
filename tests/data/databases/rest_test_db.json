@@ -1,32 +1,35 @@
 {
 	"sleep_10" : {
-		"program"     : [ "/bin/sleep", "10" ],
-		"max-runtime" : 12,
-		"avg-runtime" : 0.0,
-		"var-runtime" : 0.0,
-		"schedule"    : "",
-		"status"      : "stopped",
-		"start-time"  : 0,
-		"nbr-runs"    : 0				
+		"program"     	: [ "/bin/sleep", "10" ],
+		"max-runtime" 	: 12,
+		"avg-runtime" 	: 0.0,
+		"var-runtime" 	: 0.0,
+		"schedule"    	: "",
+		"status"      	: "stopped",
+		"pending-start" : 0,
+		"start-time"  	: 0,
+		"nbr-runs"    	: 0				
 	},
 	"list_home" : {
-		"program"     : [ "/bin/ls", "-hal", "./build/"],
-		"max-runtime" : 5,
-		"avg-runtime" : 0.0,
-		"var-runtime" : 0.0,
-		"schedule"    : "",
-		"status"      : "stopped",
-		"start-time"  : 0,
-		"nbr-runs"    : 0
+		"program"     	: [ "/bin/ls", "-hal", "./build/"],
+		"max-runtime" 	: 5,
+		"avg-runtime" 	: 0.0,
+		"var-runtime" 	: 0.0,
+		"schedule"    	: "",
+		"status"      	: "stopped",
+		"pending-start" : 0,
+		"start-time"  	: 0,
+		"nbr-runs"    	: 0
 	},
 	"hello_world" : {
-		"program"     : [ "/bin/bash", "-c", "sleep 5 && touch ./build/hello_world.txt"],
-		"max-runtime" : 7,
-		"avg-runtime" : 0.0,
-		"var-runtime" : 0.0,
-		"schedule"    : "",
-		"status"      : "stopped",
-		"start-time"  : 0,
-		"nbr-runs"    : 0
+		"program"     	: [ "/bin/bash", "-c", "sleep 5 && touch ./build/hello_world.txt"],
+		"max-runtime" 	: 7,
+		"avg-runtime" 	: 0.0,
+		"var-runtime" 	: 0.0,
+		"schedule"    	: "",
+		"status"      	: "stopped",
+		"pending-start" : 0,
+		"start-time" 	 : 0,
+		"nbr-runs"    	: 0
 	}
 }

@@ -1,12 +1,13 @@
 {
 	"job_1" : {
-		"program"     : [ "/usr/bin/ls", "-hal" ],
-		"max-runtime" : 10,
-		"avg-runtime" : 0.0,
-		"var-runtime" : 0.0,
-		"schedule"    : "",
-		"status"      : "stopped",
-		"start-time"  : 0,
-		"nbr-runs"    : 0				
+		"program"     	: [ "/usr/bin/ls", "-hal" ],
+		"max-runtime" 	: 10,
+		"avg-runtime" 	: 0.0,
+		"var-runtime" 	: 0.0,
+		"schedule"    	: "",
+		"status"      	: "stopped",
+		"pending-start" : 0,
+		"start-time"  	: 0,
+		"nbr-runs"    	: 0				
 	}
 }

@@ -29,8 +29,8 @@
 
 #include <fstream>
 #include <chrono>
-
-#include <iostream>
+#include <cstdio>
+#include <streambuf>
 
 /*----------------------- Public Functions Definitions ------------*/
 void test_jobs_manager_start_job(void)
@@ -68,9 +68,6 @@ void test_jobs_manager_start_job(void)
   /* verify that it is started */
   ASSERT(std::string("running") == job["status"].get<std::string>());
   ASSERT(now                    == job["start-time"].get<std::time_t>());           
-
-  /* cannot start it again */
-  ASSERT(ERROR_JOB_IS_RUNNING == manager.start_job("sleep_2"));
 
   /* wait until it finishes */
   std::this_thread::sleep_for(std::chrono::seconds(job["max-runtime"].get<std::time_t>()));
@@ -199,4 +196,97 @@ void test_jobs_manager_stop_all_jobs(void)
     ASSERT(1                      == job["nbr-runs"].get<unsigned long int>()); 
     ASSERT(0.0                    == job["var-runtime"].get<double>()); 
   }
+}
+
+void test_jobs_manager_queued_start_requests(void)
+{
+  KiwibesDatabase    database; 
+  KiwibesJobsManager manager(&database);
+  nlohmann::json     job; 
+
+  /* lambda function that counts occurrences of string 'hello world !' in 
+     the output file 'hello_world.txt'
+   */
+  auto count_occurrences = []()
+  {
+    std::ifstream hello("./hello_world.txt");
+    std::string content;
+
+    hello.seekg(0, std::ios::end);   
+    content.reserve(hello.tellg());
+    hello.seekg(0, std::ios::beg);
+    content.assign((std::istreambuf_iterator<char>(hello)),std::istreambuf_iterator<char>());
+
+    unsigned int occurrences = 0;
+    std::string::size_type pos = 0;
+    std::string target = "hello world !";
+    pos = content.find(target,pos);
+    while( std::string::npos != pos)
+    {
+      occurrences++;
+      pos += target.length();
+      pos = content.find(target,pos);
+    }
+
+    return occurrences;     
+  };
+
+  /* because all job changes are written to the database, we need to use
+     a copy of the original database 
+   */
+  {
+#if defined(__linux__)
+    std::ifstream src("../tests/data/databases/linux_jobs.json");
+#else 
+    #error "OS not supported"
+#endif 
+    std::ofstream dst("./test_jobs.json");
+
+    dst << src.rdbuf();
+  }
+
+  /* load a valid database and start one of its jobs */
+  ASSERT(ERROR_NO_ERROR == database.load("./test_jobs.json"));
+
+  /* request the same job to start multiple times */
+  std::remove("./hello_world.txt");
+ 
+  ASSERT(ERROR_NO_ERROR == manager.start_job("hello_world"));
+  ASSERT(ERROR_NO_ERROR == manager.start_job("hello_world"));
+  ASSERT(ERROR_NO_ERROR == manager.start_job("hello_world"));
+
+  /* there are two pending requests, since one is executing */
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"hello_world"));
+  ASSERT(2 == job["pending-start"].get<signed int>());
+
+  /* wait until all job executions finish, there should be 3 occurrences of 'hello world !' */
+  std::this_thread::sleep_for(std::chrono::seconds(9)); 
+
+  ASSERT(3 == count_occurrences());
+
+  /* request the same job to start multiple times, but stop the first execution */
+  std::remove("./hello_world.txt");
+ 
+  ASSERT(ERROR_NO_ERROR == manager.start_job("hello_world"));
+  ASSERT(ERROR_NO_ERROR == manager.start_job("hello_world"));
+  ASSERT(ERROR_NO_ERROR == manager.start_job("hello_world"));
+
+  /* there are two pending requests, since one is executing */
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"hello_world"));
+  ASSERT(2 == job["pending-start"].get<signed int>());
+
+  /* wait a little and stop the current execution */
+  std::this_thread::sleep_for(std::chrono::milliseconds(500));
+  ASSERT(ERROR_NO_ERROR == manager.stop_job("hello_world"));
+
+  /* one of the pending requests is started and there is still one pending request */
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"hello_world"));
+  ASSERT(1 == job["pending-start"].get<signed int>());
+
+  /* wait until all job executions finish, there should be 2 occurrences of 'hello world !' */
+  std::this_thread::sleep_for(std::chrono::seconds(6)); 
+
+  ASSERT(2 == count_occurrences());
 }

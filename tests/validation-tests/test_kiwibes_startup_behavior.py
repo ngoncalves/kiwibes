@@ -35,6 +35,7 @@ def test_invalid_arguments():
 						['./','-l'],					# incomplete option
 						['./','-l','3'],				# invalid log level
 						['./','-s','101'],				# invalid log maximum size
+						['./','-d','101'],				# invalid data store maximum size
 	                   ]
 
 	expected_errors = [ 'ERROR_CMDLINE_PARSE',
@@ -43,6 +44,7 @@ def test_invalid_arguments():
 						'ERROR_CMDLINE_PARSE',
 						'ERROR_CMDLINE_INV_LOG_LEVEL',
 						'ERROR_CMDLINE_INV_LOG_MAX_SIZE',
+						'ERROR_CMDLINE_INV_DATA_STORE_MAX_SIZE'
 					  ]
 
 	for scenario in zip(cmd_line_args,expected_errors):

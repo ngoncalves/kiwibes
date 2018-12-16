@@ -41,6 +41,13 @@
 #endif 
 
 /*----------------- Private Functions Declarations -----------------------------*/
+/** Launch the job in a separate process
+
+  @param job    the job description
+  @return the new process handle
+ */
+static T_PROCESS_HANDLER launch_job_process(nlohmann::json &job);
+
 /** Watcher Thread 
 
   This function waits for the processes in the map of active jobs to finish.
@@ -81,43 +88,42 @@ T_KIWIBES_ERROR KiwibesJobsManager::start_job(const std::string &name)
   std::lock_guard<std::mutex> lock(jobs_lock);
 
   T_KIWIBES_ERROR error = ERROR_NO_ERROR;
-  nlohmann::json  job;
-
+  
   if(1 == active_jobs.count(name))
   {
-    LOG_INFO << "Job '" << name << "' is already running, not starting it";
-    error = ERROR_JOB_IS_RUNNING;
+    LOG_INFO << "Job '" << name << "' is already running, queueing it";
+    error = database->job_incr_start_requests(name);
   }
-
-  if(ERROR_NO_ERROR == error)
-  {   
+  else
+  {
+    nlohmann::json job;
     error = database->get_job_description(job,name);
 
     if(ERROR_NO_ERROR != error)
     {
       LOG_WARN << "No job with name '" << name << "' was found in the database";  
     }
-  }
-
-  if(ERROR_NO_ERROR == error)
-  {
-    T_PROCESS_HANDLER handle = launch_job(job);
-
-    if(INVALID_PROCESS_HANDLE != handle)
-    {
-      active_jobs.insert(std::pair<std::string,T_PROCESS_HANDLER>(name,handle));
-      database->job_started(name);
-    }    
     else
     {
-      LOG_CRIT << "Failed to launch process for job '" << name << "'";  
-      error = ERROR_PROCESS_LAUNCH_FAILED;
+      T_PROCESS_HANDLER handle = launch_job_process(job);
+
+      if(INVALID_PROCESS_HANDLE != handle)
+      {
+        active_jobs.insert(std::pair<std::string,T_PROCESS_HANDLER>(name,handle));
+        database->job_started(name);
+        LOG_INFO << "Started job '" << name << "'";
+      }    
+      else
+      {
+        LOG_CRIT << "Failed to launch process for job '" << name << "'";  
+        error = ERROR_PROCESS_LAUNCH_FAILED;
+      }
     }
   }
-    
+
   return error;
 }
-  
+
 T_KIWIBES_ERROR KiwibesJobsManager::stop_job(const std::string &name)
 {
   std::lock_guard<std::mutex> lock(jobs_lock);
@@ -167,7 +173,8 @@ void KiwibesJobsManager::stop_all_jobs(void)
   }
 }
 
-T_PROCESS_HANDLER KiwibesJobsManager::launch_job(nlohmann::json &job)
+/*------------------ Private Functions Definitions ----------------------*/
+static T_PROCESS_HANDLER launch_job_process(nlohmann::json &job)
 {
   T_PROCESS_HANDLER handle = INVALID_PROCESS_HANDLE;
 
@@ -201,13 +208,12 @@ T_PROCESS_HANDLER KiwibesJobsManager::launch_job(nlohmann::json &job)
   return handle; 
 }
 
-/*------------------ Private Functions Definitions ----------------------*/
 static void watcher_thread(KiwibesDatabase *database, std::map<std::string, T_PROCESS_HANDLER> *active_jobs, std::mutex *jobs_lock, bool *exitFlag)
 {
   while(false == *exitFlag)
   {
     /* wait a little before attempting to get the lock */
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
     /* check if any of the processes has exited, an if so update the database
        information and remove it from the map of active jobs 
@@ -229,8 +235,33 @@ static void watcher_thread(KiwibesDatabase *database, std::map<std::string, T_PR
             /* notify the database that the job has finished and then remove 
                the job from the map of active jobs
              */
-            database->job_stopped((*iter).first);
+            std::string name = std::string((*iter).first);
+
+            database->job_stopped(name);
             active_jobs->erase(iter);
+
+            /* if there are queued start requests for this job, run it again */
+            if(0 <= database->job_decr_start_requests(name))
+            {
+              LOG_INFO << "Job '" << name << "' has pending start requests, starting it again";
+
+              nlohmann::json job;
+              if(ERROR_NO_ERROR == database->get_job_description(job,name))
+              {
+                T_PROCESS_HANDLER handle = launch_job_process(job);
+
+                if(INVALID_PROCESS_HANDLE != handle)
+                {
+                  active_jobs->insert(std::pair<std::string,T_PROCESS_HANDLER>(name,handle));
+                  database->job_started(name);
+                  LOG_INFO << "Started job '" << name << "'";
+                }    
+                else
+                {
+                  LOG_CRIT << "Failed to launch process for job '" << name << "'";  
+                }
+              }
+            }
             break;
           }
         }

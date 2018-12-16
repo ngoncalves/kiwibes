@@ -75,6 +75,27 @@ public:
   */
   T_KIWIBES_ERROR job_stopped(const std::string &name);
 
+  /** Increment the pending start requests for this job
+
+    @param name   the name of the job
+    @return ERROR_NO_ERROR if successfull, error code otherwise  
+   */
+  T_KIWIBES_ERROR job_incr_start_requests(const std::string &name);
+
+  /** Decrement the pending start requests for this job
+
+    @param name   the name of the job
+    @return number of requests stil pending
+   */
+  signed int job_decr_start_requests(const std::string &name);
+
+  /** Clearr all the pending start requests for this job
+
+    @param name   the name of the job
+    @return number of requests stil pending
+   */
+  T_KIWIBES_ERROR job_clear_start_requests(const std::string &name);
+
   /** Return the names of the jobs that can be scheduled
 
     @param jobs   on return contains the names of the jobs that can be scheduled

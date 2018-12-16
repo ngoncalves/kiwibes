@@ -63,7 +63,7 @@ T_KIWIBES_ERROR KiwibesDatabase::load(const std::string &fname)
       {
         const char *expected[] = { 
           "program","max-runtime","avg-runtime","var-runtime","schedule","status",
-          "start-time","nbr-runs",
+          "start-time","nbr-runs","pending-start",
         };
 
         for(unsigned int f = 0; f < sizeof(expected)/sizeof(const char *); f++)
@@ -79,8 +79,9 @@ T_KIWIBES_ERROR KiwibesDatabase::load(const std::string &fname)
         if(ERROR_NO_ERROR == error)
         {
           /* valid job description, reset some of the fields */
-          job.value()["status"]     = "stopped";
-          job.value()["start-time"] = 0;
+          job.value()["status"]        = "stopped";
+          job.value()["start-time"]    = 0;
+          job.value()["pending-start"] = 0;
         }     
       }
     }
@@ -199,6 +200,79 @@ T_KIWIBES_ERROR KiwibesDatabase::job_stopped(const std::string &name)
   return error;
 }
 
+T_KIWIBES_ERROR KiwibesDatabase::job_incr_start_requests(const std::string &name)
+{
+  std::lock_guard<std::mutex> lock(dblock);
+
+  T_KIWIBES_ERROR error = ERROR_NO_ERROR;
+
+  if(0 == (*dbjobs).count(name))
+  {
+    LOG_CRIT << "could not find job '" << name << "'";
+    error = ERROR_JOB_NAME_UNKNOWN;
+  }
+  else
+  {
+    LOG_INFO << "incremented start requests for job '" << name << "'";
+
+    signed int pending_start = (*dbjobs)[name]["pending-start"].get<signed int>();
+    pending_start++;
+    (*dbjobs)[name]["pending-start"] = pending_start;
+  }
+
+  return error; 
+}
+
+signed int KiwibesDatabase::job_decr_start_requests(const std::string &name)
+{
+  std::lock_guard<std::mutex> lock(dblock);
+
+  signed int pending_start = -1;
+
+  if(0 == (*dbjobs).count(name))
+  {
+    LOG_CRIT << "could not find job '" << name << "'";
+  }
+  else
+  {
+    pending_start = (*dbjobs)[name]["pending-start"].get<signed int>();
+
+    if(0 < pending_start)
+    {
+      LOG_INFO << "decremented start requests for job '" << name << "'";
+      pending_start--;
+      (*dbjobs)[name]["pending-start"] = pending_start;
+    }
+    else
+    {
+      pending_start = -1;
+    }
+  }
+
+  return pending_start;
+}
+
+T_KIWIBES_ERROR KiwibesDatabase::job_clear_start_requests(const std::string &name)
+{
+  std::lock_guard<std::mutex> lock(dblock);
+
+  T_KIWIBES_ERROR error = ERROR_NO_ERROR;
+
+  if(0 == (*dbjobs).count(name))
+  {
+    LOG_CRIT << "could not find job '" << name << "'";
+    error = ERROR_JOB_NAME_UNKNOWN;
+  }
+  else
+  {
+    LOG_INFO << "reseted all start requests for job '" << name << "'";
+
+    (*dbjobs)[name]["pending-start"] = 0;
+  }
+
+  return error; 
+}
+
 void KiwibesDatabase::get_all_schedulable_jobs(std::vector<std::string> &jobs)
 {
   std::lock_guard<std::mutex> lock(dblock);
@@ -310,11 +384,12 @@ T_KIWIBES_ERROR KiwibesDatabase::create_job(const std::string &name, const nlohm
       (*dbjobs)[name]["max-runtime"] = details["max-runtime"].get<std::time_t>(); 
 
       /* reset the job parameters */
-      (*dbjobs)[name]["avg-runtime"] = 0.0; 
-      (*dbjobs)[name]["var-runtime"] = 0.0; 
-      (*dbjobs)[name]["status"]      = "stopped"; 
-      (*dbjobs)[name]["start-time"]  = 0; 
-      (*dbjobs)[name]["nbr-runs"]    = 0; 
+      (*dbjobs)[name]["avg-runtime"]   = 0.0; 
+      (*dbjobs)[name]["var-runtime"]   = 0.0; 
+      (*dbjobs)[name]["status"]        = "stopped"; 
+      (*dbjobs)[name]["pending-start"] = 0; 
+      (*dbjobs)[name]["start-time"]    = 0; 
+      (*dbjobs)[name]["nbr-runs"]      = 0; 
 
       unsafe_save();
     }  

@@ -122,4 +122,30 @@ void test_data_store_clear_all(void)
   ASSERT(ERROR_DATA_KEY_UNKNOWN == ds.read(value,"test 3"));
 }
 
+void test_data_store_size(void)
+{
+  // on a data store with size zero, writting is not possible
+  KiwibesDataStore ds_zero(0);
 
+  ASSERT(ERROR_DATA_STORE_FULL == ds_zero.write("a","b"));
+
+  // verify that the size limit is reached
+  KiwibesDataStore ds_one(1);
+
+  unsigned int currSize = 0;
+  for(unsigned int i = 0; i < 1024*1024; i++)
+  {
+    std::string key = std::string("key") + std::to_string(i);
+    currSize += key.size() + strlen("my test");
+
+    if(currSize > 1024*1024)
+    {
+      ASSERT(ERROR_DATA_STORE_FULL == ds_one.write(key,"my test"));  
+      break;
+    }
+    else
+    {
+      ASSERT(ERROR_NO_ERROR == ds_one.write(key,"my test"));    
+    }
+  }  
+}

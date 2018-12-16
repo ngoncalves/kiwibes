@@ -80,14 +80,6 @@ public:
   void stop_all_jobs(void);
 
 private:
-  /** Launch the job in a separate process
-
-    @param job  the job description
-    @returns process handle
-   */
-  T_PROCESS_HANDLER launch_job(nlohmann::json &job);
-
-private:
   KiwibesDatabase                          *database;    /* private pointer to the database */
   std::map<std::string, T_PROCESS_HANDLER> active_jobs;  /* active jobs */
   std::mutex                               jobs_lock;    /* exclusive access to the list of running jobs */

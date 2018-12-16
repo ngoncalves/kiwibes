@@ -148,9 +148,10 @@ void test_database_get_job_description(void)
   ASSERT(1                      == job["nbr-runs"].get<unsigned long int>()); 
   ASSERT(expected_program       == job["program"].get<std::vector<std::string> >()); 
 
-  /* these two fields are reseted when first loading a database, for all jobs */ 
+  /* these fields are reseted when first loading a database, for all jobs */ 
   ASSERT(std::string("stopped") == job["status"].get<std::string>());
   ASSERT(0                      == job["start-time"].get<std::time_t>()); 
+  ASSERT(0                      == job["pending-start"].get<signed int>()); 
 
   /* "job 2" exists, verify it is correctly read out */
   expected_program = { "/usr/bin/ls", "-h","-a","-l"};
@@ -167,6 +168,7 @@ void test_database_get_job_description(void)
   /* these two fields are reseted when first loading a database, for all jobs */ 
   ASSERT(std::string("stopped") == job["status"].get<std::string>());
   ASSERT(0                      == job["start-time"].get<std::time_t>()); 
+  ASSERT(0                      == job["pending-start"].get<signed int>());
 }
 
 void test_database_job_started(void)
@@ -219,6 +221,7 @@ void test_database_job_started(void)
   ASSERT(0                      == job["nbr-runs"].get<unsigned long int>()); 
   ASSERT(expected_program       == job["program"].get<std::vector<std::string> >()); 
   ASSERT(std::string("stopped") == job["status"].get<std::string>());
+  ASSERT(0                      == job["pending-start"].get<signed int>());
   ASSERT(0                      == job["start-time"].get<std::time_t>());   
 
   std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
@@ -232,14 +235,15 @@ void test_database_job_started(void)
   ASSERT(now                    == job["start-time"].get<std::time_t>());   
 
   /* these parameters do not change */
-  ASSERT(10                     == job["max-runtime"].get<unsigned long int>()); 
-  ASSERT(0.0                    == job["avg-runtime"].get<double>()); 
-  ASSERT(0.0                    == job["var-runtime"].get<double>()); 
-  ASSERT(std::string("")        == job["schedule"].get<std::string>()); 
-  ASSERT(0                      == job["nbr-runs"].get<unsigned long int>()); 
-  ASSERT(expected_program       == job["program"].get<std::vector<std::string> >()); 
+  ASSERT(10               == job["max-runtime"].get<unsigned long int>()); 
+  ASSERT(0.0              == job["avg-runtime"].get<double>()); 
+  ASSERT(0.0              == job["var-runtime"].get<double>()); 
+  ASSERT(std::string("")  == job["schedule"].get<std::string>()); 
+  ASSERT(0                == job["nbr-runs"].get<unsigned long int>()); 
+  ASSERT(expected_program == job["program"].get<std::vector<std::string> >()); 
+  ASSERT(0                == job["pending-start"].get<signed int>());
 
-  /* cannot start the job twice */
+  /* cannot change again the job status to "running */
   ASSERT(ERROR_JOB_IS_RUNNING == database.job_started("job_1"));
 }
 
@@ -297,6 +301,7 @@ void test_database_job_stopped(void)
   ASSERT(0                      == job["nbr-runs"].get<unsigned long int>()); 
   ASSERT(expected_program       == job["program"].get<std::vector<std::string> >()); 
   ASSERT(std::string("running") == job["status"].get<std::string>());
+  ASSERT(0                      == job["pending-start"].get<signed int>());
   ASSERT(now                    == job["start-time"].get<std::time_t>());   
 
   std::this_thread::sleep_for(std::chrono::seconds(2));
@@ -306,9 +311,10 @@ void test_database_job_stopped(void)
   ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job_1"));
 
   /* these parameters do not change when starting/stopping jobs */
-  ASSERT(10                     == job["max-runtime"].get<unsigned long int>()); 
-  ASSERT(std::string("")        == job["schedule"].get<std::string>()); 
-  ASSERT(expected_program       == job["program"].get<std::vector<std::string> >()); 
+  ASSERT(10               == job["max-runtime"].get<unsigned long int>()); 
+  ASSERT(std::string("")  == job["schedule"].get<std::string>()); 
+  ASSERT(expected_program == job["program"].get<std::vector<std::string> >()); 
+  ASSERT(0                == job["pending-start"].get<signed int>());
 
   /* these properties change after stopping the job. The average runtime is equal to
      the sleep time and the variance is zero, because there is only one sample
@@ -425,6 +431,7 @@ void test_database_create_job(void)
     ASSERT(expected_program           == created_job["program"].get<std::vector<std::string> >()); 
     ASSERT(std::string("stopped")     == created_job["status"].get<std::string>());
     ASSERT(0                          == created_job["start-time"].get<std::time_t>());
+    ASSERT(0                          == created_job["pending-start"].get<signed int>());
 
     database.get_all_job_names(job_names);
     ASSERT(1 == job_names.size());
@@ -449,6 +456,7 @@ void test_database_create_job(void)
     ASSERT(expected_program           == created_job["program"].get<std::vector<std::string> >()); 
     ASSERT(std::string("stopped")     == created_job["status"].get<std::string>());
     ASSERT(0                          == created_job["start-time"].get<std::time_t>());
+    ASSERT(0                          == created_job["pending-start"].get<signed int>());
   }
 
   /* cannot create a job with an already existing name */
@@ -462,11 +470,12 @@ void test_database_create_job(void)
   */
   nlohmann::json invalid_job; 
 
-  invalid_job["avg-runtime"] = 21.9;
-  invalid_job["var-runtime"] = 8.76;
-  invalid_job["nbr-runs"]    = 123;
-  invalid_job["status"]      = "fubar";
-  invalid_job["start-time"]  = 12346;
+  invalid_job["avg-runtime"]   = 21.9;
+  invalid_job["var-runtime"]   = 8.76;
+  invalid_job["nbr-runs"]      = 123;
+  invalid_job["status"]        = "fubar";
+  invalid_job["start-time"]    = 12346;
+  invalid_job["pending-start"] = -46;
 
   ASSERT(ERROR_JOB_DESCRIPTION_INVALID == database.create_job("my other job",invalid_job));
 
@@ -490,6 +499,7 @@ void test_database_create_job(void)
   ASSERT(expected_program           == job["program"].get<std::vector<std::string> >()); 
   ASSERT(std::string("stopped")     == job["status"].get<std::string>());
   ASSERT(0                          == job["start-time"].get<std::time_t>());
+  ASSERT(0                          == job["pending-start"].get<signed int>());
 }
 
 void test_database_edit_job(void)
@@ -550,6 +560,7 @@ void test_database_edit_job(void)
   ASSERT(expected_program       == job["program"].get<std::vector<std::string> >()); 
   ASSERT(std::string("stopped") == job["status"].get<std::string>());
   ASSERT(0                      == job["start-time"].get<std::time_t>());     
+  ASSERT(0                      == job["pending-start"].get<signed int>());
 
   /* update the max-runtime property of a job */
   update["max-runtime"] = 69;
@@ -564,6 +575,7 @@ void test_database_edit_job(void)
   ASSERT(expected_program       == job["program"].get<std::vector<std::string> >()); 
   ASSERT(std::string("stopped") == job["status"].get<std::string>());
   ASSERT(0                      == job["start-time"].get<std::time_t>());    
+  ASSERT(0                      == job["pending-start"].get<signed int>());
 
   /* update the schedule property of a job */
   update = { {"schedule", "* * * * 5 6"} };
@@ -579,6 +591,7 @@ void test_database_edit_job(void)
   ASSERT(expected_program           == job["program"].get<std::vector<std::string> >()); 
   ASSERT(std::string("stopped")     == job["status"].get<std::string>());
   ASSERT(0                          == job["start-time"].get<std::time_t>());        
+  ASSERT(0                          == job["pending-start"].get<signed int>());
 
   /* update the program property of a job */
   update = { {"program", {"/usr/bin/echo"}} };
@@ -595,6 +608,7 @@ void test_database_edit_job(void)
   ASSERT(expected_program           == job["program"].get<std::vector<std::string> >()); 
   ASSERT(std::string("stopped")     == job["status"].get<std::string>());
   ASSERT(0                          == job["start-time"].get<std::time_t>());        
+  ASSERT(0                          == job["pending-start"].get<signed int>());
 
   /* all other properties are ignored */
   update = { {"avg-runtime", 12,34}, {"var-runtime", 78.90}, {"status", "fubar"} };
@@ -610,6 +624,7 @@ void test_database_edit_job(void)
   ASSERT(expected_program           == job["program"].get<std::vector<std::string> >()); 
   ASSERT(std::string("stopped")     == job["status"].get<std::string>());
   ASSERT(0                          == job["start-time"].get<std::time_t>());          
+  ASSERT(0                          == job["pending-start"].get<signed int>());
 
   /* cannot edit a job that is running */
   ASSERT(ERROR_NO_ERROR == database.job_started("job_1"));
@@ -617,4 +632,149 @@ void test_database_edit_job(void)
   update = { {"program", {"/usr/bin/echo"}} };
 
   ASSERT(ERROR_JOB_IS_RUNNING == database.edit_job("job_1",update));
+}
+
+void test_database_job_incr_start_requests(void)
+{
+  KiwibesDatabase database; 
+  nlohmann::json job;
+
+  /* because all job changes are written to the database, we need to use
+     a copy of the original database 
+   */
+  {
+    std::ifstream src("../tests/data/databases/single_job.json");
+    std::ofstream dst("./single_job.json");
+
+    dst << src.rdbuf();
+  }
+
+  /* load a valid database */
+  ASSERT(ERROR_NO_ERROR == database.load("./single_job.json"));
+
+  /* cannot increment the pending start requests for a non-existing job */
+  ASSERT(ERROR_JOB_NAME_UNKNOWN == database.job_incr_start_requests("does_not_exist"));
+
+  /* can increment the pending start requests for an existing job */
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job_1"));
+  ASSERT(0 == job["pending-start"].get<signed int>());
+
+  ASSERT(ERROR_NO_ERROR == database.job_incr_start_requests("job_1"));
+  
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job_1"));
+  ASSERT(1 == job["pending-start"].get<signed int>());
+}
+
+void test_database_job_decr_start_requests(void)
+{
+  KiwibesDatabase database; 
+  nlohmann::json job;
+
+  /* because all job changes are written to the database, we need to use
+     a copy of the original database 
+   */
+  {
+    std::ifstream src("../tests/data/databases/single_job.json");
+    std::ofstream dst("./single_job.json");
+
+    dst << src.rdbuf();
+  }
+
+  /* load a valid database */
+  ASSERT(ERROR_NO_ERROR == database.load("./single_job.json"));
+
+  /* decrementing the pending start requests for a non-existing job returns -1*/
+  ASSERT(-1 == database.job_decr_start_requests("does_not_exist"));
+
+  /* decrementing the pending start requests for a existing job returns the number
+     of stil pending requests. When there no requests pending, it returns -1
+   */
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job_1"));
+  ASSERT(0 == job["pending-start"].get<signed int>());
+
+  ASSERT(-1 == database.job_decr_start_requests("job_1"));
+  ASSERT(-1 == database.job_decr_start_requests("job_1"));
+  ASSERT(-1 == database.job_decr_start_requests("job_1"));
+
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job_1"));
+  ASSERT(0 == job["pending-start"].get<signed int>());
+
+  /* one request pending, decrementing the requests returns 0 */
+  ASSERT(ERROR_NO_ERROR == database.job_incr_start_requests("job_1"));
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job_1"));
+  ASSERT(1 == job["pending-start"].get<signed int>());
+
+  ASSERT(0 == database.job_decr_start_requests("job_1"));
+
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job_1"));
+  ASSERT(0 == job["pending-start"].get<signed int>());
+
+  /* decrementing it again returns -1, because there are no more pending requests */
+  ASSERT(-1 == database.job_decr_start_requests("job_1"));  
+
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job_1"));
+  ASSERT(0 == job["pending-start"].get<signed int>());
+
+  /* verify that decrement returns the correct pending count */
+  ASSERT(ERROR_NO_ERROR == database.job_clear_start_requests("job_1"));
+
+  for(unsigned int i = 0; i < 100; i++)
+  {
+    ASSERT(ERROR_NO_ERROR == database.job_incr_start_requests("job_1"));
+  }
+
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job_1"));
+  ASSERT(100 == job["pending-start"].get<signed int>());
+
+  for(signed int i = 100; i > 0; i--)
+  {
+    ASSERT((i - 1) == database.job_decr_start_requests("job_1"));
+
+    ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job_1"));
+    ASSERT((i - 1) == job["pending-start"].get<signed int>());    
+  }
+
+  /* no more pending requests */
+  ASSERT(-1 == database.job_decr_start_requests("job_1"));
+
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job_1"));
+  ASSERT(0 == job["pending-start"].get<signed int>());
+}
+
+void test_database_job_clear_start_requests(void)
+{
+  KiwibesDatabase database; 
+  nlohmann::json job;
+
+  /* because all job changes are written to the database, we need to use
+     a copy of the original database 
+   */
+  {
+    std::ifstream src("../tests/data/databases/single_job.json");
+    std::ofstream dst("./single_job.json");
+
+    dst << src.rdbuf();
+  }
+
+  /* load a valid database */
+  ASSERT(ERROR_NO_ERROR == database.load("./single_job.json"));
+
+  /* cannot clear all pending requests for a job that does not exist*/
+  ASSERT(ERROR_JOB_NAME_UNKNOWN == database.job_clear_start_requests("does_not_exist"));
+
+  /* increment the number of pending requests */
+  ASSERT(ERROR_NO_ERROR == database.job_incr_start_requests("job_1"));
+  ASSERT(ERROR_NO_ERROR == database.job_incr_start_requests("job_1"));
+  ASSERT(ERROR_NO_ERROR == database.job_incr_start_requests("job_1"));
+
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job_1"));
+  ASSERT(3 == job["pending-start"].get<signed int>());
+
+  ASSERT(ERROR_NO_ERROR == database.job_clear_start_requests("job_1"));
+
+  ASSERT(ERROR_NO_ERROR == database.get_job_description(job,"job_1"));
+  ASSERT(0 == job["pending-start"].get<signed int>());
+
+  /* cannot decrement the pending requests */
+  ASSERT(-1 == database.job_decr_start_requests("job_1"));  
 }

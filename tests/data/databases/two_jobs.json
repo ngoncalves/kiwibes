@@ -1,23 +1,25 @@
 {
 	"job_1" : {
-		"program"     : [ "/usr/bin/ls", "-hal" ],
-		"max-runtime" : 10,
-		"avg-runtime" : 23.3456,
-		"var-runtime" : 0.123234,
-		"schedule"    : "",
-		"status"      : "running",
-		"start-time"  : 123453,
-		"nbr-runs"    : 1				
+		"program"     	: [ "/usr/bin/ls", "-hal" ],
+		"max-runtime" 	: 10,
+		"avg-runtime" 	: 23.3456,
+		"var-runtime" 	: 0.123234,
+		"schedule"    	: "",
+		"status"      	: "running",
+		"pending-start" : 0,
+		"start-time"  	: 123453,
+		"nbr-runs"    	: 1				
 	},
 	
 	"job_2" : {
-		"program"     : [ "/usr/bin/ls", "-h", "-a", "-l" ],
-		"max-runtime" : 10,
-		"avg-runtime" : 2.45,
-		"var-runtime" : 0.123,
-		"schedule"    : "* * 5 * 5 *",
-		"status"      : "stopped",
-		"start-time"  : 0,
-		"nbr-runs"    : 50				
+		"program"     	: [ "/usr/bin/ls", "-h", "-a", "-l" ],
+		"max-runtime" 	: 10,
+		"avg-runtime" 	: 2.45,
+		"var-runtime" 	: 0.123,
+		"schedule"    	: "* * 5 * 5 *",
+		"status"      	: "stopped",
+		"pending-start" : 0,
+		"start-time"  	: 0,
+		"nbr-runs"    	: 50				
 	}
 }
