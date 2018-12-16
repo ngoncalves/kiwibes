@@ -414,3 +414,35 @@ def test_stop_job():
 
 	# verify that the job did not full ran
 	assert False == os.path.isfile(os.path.join(util.KIWIBES_HOME,"hello_world.txt"))
+
+def test_queue_jobs():
+	"""
+	Start the same job multiple times, and check that
+	it becomes queued
+	"""
+	# start the same job multiple times
+	result = requests.post("http://127.0.0.1:4242/rest/job/start/hello_world")
+	assert 200 == result.status_code
+
+	result = requests.post("http://127.0.0.1:4242/rest/job/start/hello_world")
+	assert 200 == result.status_code
+
+	result = requests.post("http://127.0.0.1:4242/rest/job/start/hello_world")
+	assert 200 == result.status_code
+
+	# verify it is queued
+	result = requests.get("http://127.0.0.1:4242/rest/job/details/hello_world")
+	assert 200 == result.status_code
+
+	assert result.json()["status"]        == "running"
+	assert result.json()["pending-start"] == 2
+
+	# wait for all executions to finish
+	time.sleep(20)
+
+	result = requests.get("http://127.0.0.1:4242/rest/job/details/hello_world")
+	assert 200 == result.status_code
+
+	assert result.json()["status"]        == "stopped"
+	assert result.json()["pending-start"] == 0
+	assert result.json()["nbr-runs"]      == 3
