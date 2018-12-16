@@ -345,7 +345,7 @@ static void post_clear_data(const httplib::Request& req, httplib::Response& res)
 static void post_clear_all_data(const httplib::Request& req, httplib::Response& res)
 {
   nlohmann::json result;
-  result["cleared-count"] = pDataStore->clear_all();
+  result["count"] = pDataStore->clear_all();
 
   res.set_content(result.dump(),"application/json");
 }
@@ -358,7 +358,10 @@ static void get_read_data(const httplib::Request& req, httplib::Response& res)
   if(ERROR_NO_ERROR == error)
   {
     res.status = 200; /* ok */
-    res.set_content(value,"text/plain");   
+    nlohmann::json jvalue;
+
+    jvalue["value"] = value;
+    res.set_content(jvalue.dump(),"application/json");   
   }
   else
   {
