@@ -44,7 +44,6 @@ help:
 	@echo '  kiwibes      	: build the Kiwibes Automation Server'
 	@echo '  ut-kiwibes   	: build and run the unit tests for Kiwibes'
 	@echo '  vld-kiwibes	: run the validation tests for Kiwibes'
-	@echo '  stress-kiwibes	: run the stress tests for Kiwibes'
 	@echo '  clean        	: clear the build directory'
 	@echo '  help         	: this text'
 	@echo '--------------------------------------------------------------------------'
@@ -58,11 +57,7 @@ ut-kiwibes:
 	make -C $(UNIT_TESTS) run
 
 vld-kiwibes: kiwibes
-	-python -m pytest -v $(VLD_TESTS)/test_kiwibes_rest_jobs.py  
-	-python -m pytest -v $(VLD_TESTS)/test_kiwibes_startup_behavior.py  
-
-stress-kiwibes: kiwibes
-	-python -m pytest -v $(VLD_TESTS)/test_kiwibes_stress.py
+	-python -m pytest -v $(VLD_TESTS)
 
 .PHONY: clean
 

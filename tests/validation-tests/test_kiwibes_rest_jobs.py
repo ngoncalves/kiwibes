@@ -19,7 +19,7 @@ If not, see <http://www.gnu.org/licenses/>.
    
 Summary
 -------
-Test the REST interface calls. 
+Test the job related REST interface calls. 
 """
 import util
 import requests
@@ -53,14 +53,13 @@ def test_get_invalid_url():
 	result = requests.get('http://127.0.0.1:4242/does/not/exist')
 
 	assert 404 == result.status_code
-	assert u"<p>ERROR</p>" == result.text
 
 def test_get_all_job_names(): 
 	"""
 	Retrieve a list with all job names
 	"""
 	# verify that the list of all job names can be retrieved 
-	result = requests.get('http://127.0.0.1:4242/jobs/list')
+	result = requests.get('http://127.0.0.1:4242/rest/jobs/list')
 
 	assert 200 == result.status_code
 	assert sorted(['hello_world','sleep_10','list_home']) == sorted(result.json())
@@ -70,7 +69,7 @@ def test_get_scheduled_jobs():
 	Return a list of jobs scheduled to run periodically
 	"""
 	# the jobs in the REST database have no schedule
-	result = requests.get('http://127.0.0.1:4242/jobs/scheduled')
+	result = requests.get('http://127.0.0.1:4242/rest/jobs/scheduled')
 	assert 200 == result.status_code
 	assert 0 == len(result.json())
 
@@ -81,11 +80,11 @@ def test_get_scheduled_jobs():
 		"max-runtime" : 5,
 	}
 
-	result = requests.post('http://127.0.0.1:4242/job/create/list_hal',data=scheduled_job)	
+	result = requests.post('http://127.0.0.1:4242/rest/job/create/list_hal',data=scheduled_job)	
 	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']		
+	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']		
 
-	result = requests.get('http://127.0.0.1:4242/jobs/scheduled')
+	result = requests.get('http://127.0.0.1:4242/rest/jobs/scheduled')
 	assert 200 == result.status_code
 	assert ["list_hal"] == result.json()
 
@@ -96,11 +95,11 @@ def test_get_scheduled_jobs():
 		"max-runtime" : 5,
 	}
 
-	result = requests.post('http://127.0.0.1:4242/job/create/unscheduled_list_hal',data=unscheduled_job)	
+	result = requests.post('http://127.0.0.1:4242/rest/job/create/unscheduled_list_hal',data=unscheduled_job)	
 	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']		
+	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']		
 
-	result = requests.get('http://127.0.0.1:4242/jobs/scheduled')
+	result = requests.get('http://127.0.0.1:4242/rest/jobs/scheduled')
 	assert 200 == result.status_code
 	assert ["list_hal"] == result.json()
 
@@ -111,11 +110,11 @@ def test_get_scheduled_jobs():
 		"max-runtime" : 12,
 	}
 
-	result = requests.post('http://127.0.0.1:4242/job/edit/sleep_10',data=scheduled_job)	
+	result = requests.post('http://127.0.0.1:4242/rest/job/edit/sleep_10',data=scheduled_job)	
 	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']		
+	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']		
 
-	result = requests.get('http://127.0.0.1:4242/jobs/scheduled')
+	result = requests.get('http://127.0.0.1:4242/rest/jobs/scheduled')
 	assert 200 == result.status_code
 	assert sorted(["list_hal","sleep_10"]) == sorted(result.json())
 
@@ -126,11 +125,11 @@ def test_get_scheduled_jobs():
 		"max-runtime" : 12,
 	}
 
-	result = requests.post('http://127.0.0.1:4242/job/edit/sleep_10',data=unscheduled_job)	
+	result = requests.post('http://127.0.0.1:4242/rest/job/edit/sleep_10',data=unscheduled_job)	
 	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']		
+	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']		
 
-	result = requests.get('http://127.0.0.1:4242/jobs/scheduled')
+	result = requests.get('http://127.0.0.1:4242/rest/jobs/scheduled')
 	assert 200 == result.status_code
 	assert sorted(["list_hal"]) == sorted(result.json())
 
@@ -139,35 +138,36 @@ def test_get_job_details():
 	Retrieve the details of a job
 	"""
 	# cannot retrieve the details of a non-existing job
-	result = requests.get('http://127.0.0.1:4242/job/details/does_not_exist')
+	result = requests.get('http://127.0.0.1:4242/rest/job/details/does_not_exist')
 	
-	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_NAME_UNKNOWN']
-
+	assert 404 == result.status_code
+	print result.text
+	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_JOB_NAME_UNKNOWN']
+	
 	# verify that it is possible to get all information for an existing job
-	result = requests.get('http://127.0.0.1:4242/job/details/sleep_10')
+	result = requests.get('http://127.0.0.1:4242/rest/job/details/sleep_10')
 
 	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']
 	
-	assert result.json()["program"]     == [ "/bin/sleep", "10" ]
-	assert result.json()["max-runtime"] == 12
-	assert result.json()["avg-runtime"] == 0.0
-	assert result.json()["var-runtime"] == 0.0
-	assert result.json()["schedule"]    == ""
-	assert result.json()["status"]      == "stopped"
-	assert result.json()["start-time"]  == 0
-	assert result.json()["nbr-runs"]    == 0				
+	assert result.json()["program"]       == [ "/bin/sleep", "10" ]
+	assert result.json()["max-runtime"]   == 12
+	assert result.json()["avg-runtime"]   == 0.0
+	assert result.json()["var-runtime"]   == 0.0
+	assert result.json()["schedule"]      == ""
+	assert result.json()["status"]        == "stopped"
+	assert result.json()["pending-start"] == 0
+	assert result.json()["start-time"]    == 0
+	assert result.json()["nbr-runs"]      == 0				
 
 def test_post_create_job():
 	"""
 	Create a job 
 	"""
 	# cannot create a job without a description
-	result = requests.post('http://127.0.0.1:4242/job/create/my_shiny_job',data={})
+	result = requests.post('http://127.0.0.1:4242/rest/job/create/my_shiny_job',data={})
 	
-	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_DESCRIPTION_INVALID']
+	assert 400 == result.status_code
+	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_JOB_DESCRIPTION_INVALID']
 
 	# cannot create a job using an existing name
 	job =  {
@@ -176,10 +176,10 @@ def test_post_create_job():
 		"max-runtime" : 1,
 	}
 
-	result = requests.post('http://127.0.0.1:4242/job/create/sleep_10',data=job)
+	result = requests.post('http://127.0.0.1:4242/rest/job/create/sleep_10',data=job)
 	
-	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_NAME_TAKEN']
+	assert 409 == result.status_code
+	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_JOB_NAME_TAKEN']
 
 	# cannot create a job without the mandatory parameters
 	job1 =  {
@@ -196,9 +196,9 @@ def test_post_create_job():
 	}
 
 	for job in [job1, job2, job3]:
-		result = requests.post('http://127.0.0.1:4242/job/create/new_job',data=job)
-		assert 200 == result.status_code
-		assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_DESCRIPTION_INVALID']
+		result = requests.post('http://127.0.0.1:4242/rest/job/create/new_job',data=job)
+		assert 400 == result.status_code
+		assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_JOB_DESCRIPTION_INVALID']
 
 	# can create a job with unnecessary parameters
 	job =  {
@@ -209,19 +209,18 @@ def test_post_create_job():
 		"nbr-runs"    : 23,
 	}
 
-	result = requests.post('http://127.0.0.1:4242/job/create/jobby_job_job',data=job)	
+	result = requests.post('http://127.0.0.1:4242/rest/job/create/jobby_job_job',data=job)	
 	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']	
+	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']	
 
 	# verify that the job was created and that the details are correct
-	result = requests.get('http://127.0.0.1:4242/jobs/list')
+	result = requests.get('http://127.0.0.1:4242/rest/jobs/list')
 	assert 200 == result.status_code
 	assert 'jobby_job_job' in result.json()
 
-	result = requests.get('http://127.0.0.1:4242/job/details/jobby_job_job')
+	result = requests.get('http://127.0.0.1:4242/rest/job/details/jobby_job_job')
 
 	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']
 	
 	assert result.json()["program"]     == [ "/bin/ls",'-l','-a','-h']
 	assert result.json()["max-runtime"] == 1
@@ -242,44 +241,41 @@ def test_post_edit_job():
 		"schedule"    : "* * * * 5 1",
 		"max-runtime" : 1234,
 	}	
-	result = requests.post('http://127.0.0.1:4242/job/edit/does_not_exist',data=new_job)
+	result = requests.post('http://127.0.0.1:4242/rest/job/edit/does_not_exist',data=new_job)
 	
-	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_NAME_UNKNOWN']
+	assert 404 == result.status_code
+	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_JOB_NAME_UNKNOWN']
 
 	# the JSON data must not be empty
-	result = requests.post('http://127.0.0.1:4242/job/edit/list_home',data={})
+	result = requests.post('http://127.0.0.1:4242/rest/job/edit/list_home',data={})
 	
-	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_EMPTY_REST_REQUEST']
+	assert 400 == result.status_code
+	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_JOB_DESCRIPTION_INVALID']
 
 	# cannot edit a job that is running
-	result = requests.post('http://127.0.0.1:4242/job/start/sleep_10')
+	result = requests.post('http://127.0.0.1:4242/rest/job/start/sleep_10')
 	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']
 
 	time.sleep(2)
-	result = requests.post('http://127.0.0.1:4242/job/edit/sleep_10',data=new_job)
+	result = requests.post('http://127.0.0.1:4242/rest/job/edit/sleep_10',data=new_job)
 	
-	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_IS_RUNNING']
+	assert 403 == result.status_code
+	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_JOB_IS_RUNNING']
 
-	requests.post('http://127.0.0.1:4242/job/stop/sleep_10')
+	requests.post('http://127.0.0.1:4242/rest/job/stop/sleep_10')
 
 	# change the job parameters
-	result = requests.get('http://127.0.0.1:4242/job/details/list_home')
+	result = requests.get('http://127.0.0.1:4242/rest/job/details/list_home')
 	assert 200 == result.status_code	
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']	
 	before_edit = result.json()
 
-	result = requests.post('http://127.0.0.1:4242/job/edit/list_home',data=new_job)
+	result = requests.post('http://127.0.0.1:4242/rest/job/edit/list_home',data=new_job)
 	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']
+	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']
 
-	result = requests.get('http://127.0.0.1:4242/job/details/list_home')
+	result = requests.get('http://127.0.0.1:4242/rest/job/details/list_home')
 	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']
-
+	
 	assert result.json()["program"]     == new_job["program"]
 	assert result.json()["max-runtime"] == new_job["max-runtime"]
 	assert result.json()["schedule"]    == new_job["schedule"]	
@@ -297,14 +293,13 @@ def test_post_edit_job():
 	        "avg-runtime" : 1.0,
 	        }
 
-	result = requests.post('http://127.0.0.1:4242/job/edit/list_home',data=job)
-	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_EMPTY_REST_REQUEST']
+	result = requests.post('http://127.0.0.1:4242/rest/job/edit/list_home',data=job)
+	assert 400 == result.status_code
+	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_JOB_DESCRIPTION_INVALID']
 
-	result = requests.get('http://127.0.0.1:4242/job/details/list_home')
+	result = requests.get('http://127.0.0.1:4242/rest/job/details/list_home')
 	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']
-
+	
 	for k in after_edit.keys():
 		assert result.json()[k] == after_edit[k]
 
@@ -314,31 +309,28 @@ def test_post_delete_job():
 	"""
 	Delete an existing job 
 	"""
-	# cannot creating an unknown job
-	result = requests.post('http://127.0.0.1:4242/job/delete/my_shiny_job')
-	
-	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_NAME_UNKNOWN']
+	# cannot delete an unknown job
+	result = requests.post('http://127.0.0.1:4242/rest/job/delete/my_shiny_job')
+	assert 404 == result.status_code
+	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_JOB_NAME_UNKNOWN']
 
 	# cannot delete a job that is running
-	result = requests.post('http://127.0.0.1:4242/job/start/sleep_10')
+	result = requests.post('http://127.0.0.1:4242/rest/job/start/sleep_10')
 	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']
-
+	
 	time.sleep(2)
 
-	result = requests.post('http://127.0.0.1:4242/job/delete/sleep_10')
-	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_IS_RUNNING']
+	result = requests.post('http://127.0.0.1:4242/rest/job/delete/sleep_10')
+	assert 403 == result.status_code
+	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_JOB_IS_RUNNING']
 
-	result = requests.post('http://127.0.0.1:4242/job/stop/sleep_10')
+	result = requests.post('http://127.0.0.1:4242/rest/job/stop/sleep_10')
 	
 	# delete an existing job
-	result = requests.post('http://127.0.0.1:4242/job/delete/list_home')
+	result = requests.post('http://127.0.0.1:4242/rest/job/delete/list_home')
 	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']
-
-	result = requests.get('http://127.0.0.1:4242/jobs/list')
+	
+	result = requests.get('http://127.0.0.1:4242/rest/jobs/list')
 	assert not 'list_home' in result.json()
 
 def test_start_job():
@@ -346,39 +338,28 @@ def test_start_job():
 	Start a job 
 	"""
 	# cannot start a job which does not exist
-	result = requests.post('http://127.0.0.1:4242/job/start/does_not_exist')
-	
-	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_NAME_UNKNOWN']
+	result = requests.post('http://127.0.0.1:4242/rest/job/start/does_not_exist')
+	assert 404 == result.status_code
+	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_JOB_NAME_UNKNOWN']
 
 	# start a job and verify it has started
 	assert False == os.path.isfile(os.path.join(util.KIWIBES_HOME,"hello_world.txt"))
 
-	result = requests.post('http://127.0.0.1:4242/job/start/hello_world')
+	result = requests.post('http://127.0.0.1:4242/rest/job/start/hello_world')
+	assert 200 == result.status_code
+
+	result = requests.get('http://127.0.0.1:4242/rest/job/details/hello_world')
+	assert 200 == result.status_code
 	
-	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']
-
-	result = requests.get('http://127.0.0.1:4242/job/details/hello_world')
-	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']
-
 	assert result.json()["status"] == "running"
 	assert result.json()["start-time"] > 0 
-
-	# cannot start a job that is already running
-	result = requests.post('http://127.0.0.1:4242/job/start/hello_world')
-	
-	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_IS_RUNNING']	
 
 	# wait until the job has stopped
 	time.sleep(7.0)
 
-	result = requests.get('http://127.0.0.1:4242/job/details/hello_world')
+	result = requests.get('http://127.0.0.1:4242/rest/job/details/hello_world')
 	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']
-
+	
 	# not checking runtime statistics because it depends heavily on
 	# the system load and one sample is not enough to meaningfully
 	# compute the average and the variance
@@ -394,46 +375,38 @@ def test_stop_job():
 	Stop a job 
 	"""
 	# cannot stop a job which does not exist
-	result = requests.post('http://127.0.0.1:4242/job/stop/does_not_exist')
-	
-	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_NAME_UNKNOWN']
+	result = requests.post('http://127.0.0.1:4242/rest/job/stop/does_not_exist')
+	assert 404 == result.status_code
+	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_JOB_NAME_UNKNOWN']
 
 	# cannot stop a job that is not running
-	result = requests.post('http://127.0.0.1:4242/job/stop/sleep_10')
-	
-	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_IS_NOT_RUNNING']	
+	result = requests.post('http://127.0.0.1:4242/rest/job/stop/sleep_10')
+	assert 403 == result.status_code
+	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_JOB_IS_NOT_RUNNING']	
 
 	# start a job, then stopp it
 	assert False == os.path.isfile(os.path.join(util.KIWIBES_HOME,"hello_world.txt"))
 
-	result = requests.post('http://127.0.0.1:4242/job/start/hello_world')
+	result = requests.post('http://127.0.0.1:4242/rest/job/start/hello_world')
+	assert 200 == result.status_code
 	
+	result = requests.get('http://127.0.0.1:4242/rest/job/details/hello_world')
 	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']
-
-	result = requests.get('http://127.0.0.1:4242/job/details/hello_world')
-	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']
-
+	
 	assert result.json()["status"] == "running"
 	assert result.json()["start-time"] > 0
 
 	time.sleep(1.0)
 
-	result = requests.post('http://127.0.0.1:4242/job/stop/hello_world')
-	
+	result = requests.post('http://127.0.0.1:4242/rest/job/stop/hello_world')
 	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']
-
+	
 	# wait a little for the job thread to exit, then query the job details
 	time.sleep(1.0)
 
-	result = requests.get('http://127.0.0.1:4242/job/details/hello_world')
+	result = requests.get('http://127.0.0.1:4242/rest/job/details/hello_world')
 	assert 200 == result.status_code
-	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']
-
+	
 	assert result.json()["avg-runtime"] < 10.0
 	assert result.json()["status"]      == "stopped"
 	assert result.json()["start-time"]  == 0.0

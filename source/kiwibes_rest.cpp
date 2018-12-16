@@ -109,13 +109,6 @@ static void get_scheduled_jobs(const httplib::Request& req, httplib::Response& r
  */
 static void rest_logger(const httplib::Request& req, const httplib::Response& res);
 
-/** REST: Error handler
-
-  @param req  the incoming HTTP request
-  @param res  the outgoing HTTP response
- */
-static void rest_error_handler(const httplib::Request& req, httplib::Response& res);
-
 /** Read the job parameters from the POST request
 
   @param params   on return, contains the POST job parameters
@@ -166,25 +159,24 @@ void setup_rest_interface(httplib::Server *http, KiwibesJobsManager *manager, Ki
   pManager   = manager;  
 
   /* setup the HTTP REST route handlers */
-  http->Post("/job/start/([a-zA-Z_0-9]+)",post_start_job);
-  http->Post("/job/stop/([a-zA-Z_0-9]+)",post_stop_job);
-  http->Post("/job/create/([a-zA-Z_0-9]+)",post_create_job);    
-  http->Post("/job/edit/([a-zA-Z_0-9]+)",post_edit_job);    
-  http->Post("/job/delete/([a-zA-Z_0-9]+)",post_delete_job);    
-  http->Post("/job/clear_pending/([a-zA-Z_0-9]+)",post_clear_pending_job);    
-  http->Get( "/job/details/([a-zA-Z_0-9]+)",get_get_job);
+  http->Post("/rest/job/start/([a-zA-Z_0-9]+)",post_start_job);
+  http->Post("/rest/job/stop/([a-zA-Z_0-9]+)",post_stop_job);
+  http->Post("/rest/job/create/([a-zA-Z_0-9]+)",post_create_job);    
+  http->Post("/rest/job/edit/([a-zA-Z_0-9]+)",post_edit_job);    
+  http->Post("/rest/job/delete/([a-zA-Z_0-9]+)",post_delete_job);    
+  http->Post("/rest/job/clear_pending/([a-zA-Z_0-9]+)",post_clear_pending_job);    
+  http->Get( "/rest/job/details/([a-zA-Z_0-9]+)",get_get_job);
 
-  http->Post("/data/write/([a-zA-Z_0-9]+)",post_write_data);    
-  http->Post("/data/clear/([a-zA-Z_0-9]+)",post_clear_data);    
-  http->Post("/data/clear_all",post_clear_all_data);    
-  http->Get( "/data/read/([a-zA-Z_0-9]+)",get_read_data);    
+  http->Post("/rest/data/write/([a-zA-Z_0-9]+)",post_write_data);    
+  http->Post("/rest/data/clear/([a-zA-Z_0-9]+)",post_clear_data);    
+  http->Post("/rest/data/clear_all",post_clear_all_data);    
+  http->Get( "/rest/data/read/([a-zA-Z_0-9]+)",get_read_data);    
   
-  http->Get("/jobs/list",get_jobs_list);
-  http->Get("/jobs/scheduled",get_scheduled_jobs);
+  http->Get("/rest/jobs/list",get_jobs_list);
+  http->Get("/rest/jobs/scheduled",get_scheduled_jobs);
       
-  /* setup the logger and the error handler */
+  /* setup the logger */
   http->set_logger(rest_logger);
-  http->set_error_handler(rest_error_handler);
 }
 
 /*--------------------------Private Function Definitions -------------------------------*/
@@ -206,10 +198,11 @@ static void post_create_job(const httplib::Request& req, httplib::Response& res)
   if(false == read_job_parameters(params,req))
   {
     error = ERROR_JOB_DESCRIPTION_INVALID;
+    LOG_INFO << "job description invalid";
   }
   else
   {
-    T_KIWIBES_ERROR error = pDatabase->create_job(req.matches[1],params);
+    error = pDatabase->create_job(req.matches[1],params);
   
     if(ERROR_NO_ERROR == error)
     {
@@ -244,7 +237,7 @@ static void post_edit_job(const httplib::Request& req, httplib::Response& res)
   }
   else
   {
-    T_KIWIBES_ERROR error = pDatabase->edit_job(req.matches[1],params);
+    error = pDatabase->edit_job(req.matches[1],params);
   
     if(ERROR_NO_ERROR == error)
     {
@@ -385,11 +378,6 @@ static void rest_logger(const httplib::Request& req, const httplib::Response& re
   LOG_INFO << req.method.c_str() << " - " << req.path.c_str() << params ; 
 }
 
-static void rest_error_handler(const httplib::Request& req, httplib::Response& res)
-{
-  res.set_content("<p>ERROR</p>","text/html");
-}
-
 static bool read_job_parameters(nlohmann::json &params, const httplib::Request &req)
 {
   bool success = true; 
@@ -474,6 +462,7 @@ static void set_return_code(httplib::Response& res, T_KIWIBES_ERROR error)
       description["message"] = "Failed to start job";  
       break;
 
+    case ERROR_JOB_DESCRIPTION_INVALID:
     case ERROR_EMPTY_REST_REQUEST:
       res.status = 400;   /* Bad request */
       description["message"] = "Bad request";
@@ -489,6 +478,11 @@ static void set_return_code(httplib::Response& res, T_KIWIBES_ERROR error)
       description["message"] = "Job is not running";
       break; 
 
+    case ERROR_JOB_IS_RUNNING:
+      res.status = 403;   /* Not allowed */
+      description["message"] = "Job is running";
+      break;
+      
     default:
       res.status = 500;   /* Generic server error */
       description["message"] = "Generic server error";         
