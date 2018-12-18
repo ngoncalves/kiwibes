@@ -5,38 +5,39 @@
 //  MIT License
 //
 
-#ifndef _CPPHTTPLIB_HTTPLIB_H_
-#define _CPPHTTPLIB_HTTPLIB_H_
+#ifndef CPPHTTPLIB_HTTPLIB_H
+#define CPPHTTPLIB_HTTPLIB_H
 
 #ifdef _WIN32
 #ifndef _CRT_SECURE_NO_WARNINGS
 #define _CRT_SECURE_NO_WARNINGS
-#endif
+#endif //_CRT_SECURE_NO_WARNINGS
+
 #ifndef _CRT_NONSTDC_NO_DEPRECATE
 #define _CRT_NONSTDC_NO_DEPRECATE
-#endif
+#endif //_CRT_NONSTDC_NO_DEPRECATE
 
 #if defined(_MSC_VER) && _MSC_VER < 1900
 #define snprintf _snprintf_s
-#endif
+#endif // _MSC_VER
 
 #ifndef S_ISREG
 #define S_ISREG(m)  (((m)&S_IFREG)==S_IFREG)
-#endif
+#endif //S_ISREG
+
 #ifndef S_ISDIR
 #define S_ISDIR(m)  (((m)&S_IFDIR)==S_IFDIR)
-#endif
+#endif //S_ISDIR
+
+#define NOMINMAX
 
 #include <io.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
-#undef min
-#undef max
-
 #ifndef strcasecmp
 #define strcasecmp _stricmp
-#endif
+#endif //strcasecmp
 
 typedef SOCKET socket_t;
 #else
@@ -52,7 +53,7 @@ typedef SOCKET socket_t;
 
 typedef int socket_t;
 #define INVALID_SOCKET (-1)
-#endif
+#endif //_WIN32
 
 #include <fstream>
 #include <functional>
@@ -131,12 +132,13 @@ struct Request {
     Progress       progress;
 
     bool has_header(const char* key) const;
-    std::string get_header_value(const char* key) const;
+    std::string get_header_value(const char* key, size_t id = 0) const;
+    size_t get_header_value_count(const char* key) const;
     void set_header(const char* key, const char* val);
 
     bool has_param(const char* key) const;
-    std::string get_param_value(const char* key) const;
-    void get_param_value_as_vector(std::vector<std::string> &value, const char *key) const;
+    std::string get_param_value(const char* key, size_t id = 0) const;
+    size_t get_param_value_count(const char* key) const;
 
     bool has_file(const char* key) const;
     MultipartFile get_file_value(const char* key) const;
@@ -150,7 +152,8 @@ struct Response {
     std::function<std::string (uint64_t offset)> streamcb;
 
     bool has_header(const char* key) const;
-    std::string get_header_value(const char* key) const;
+    std::string get_header_value(const char* key, size_t id = 0) const;
+    size_t get_header_value_count(const char* key) const;
     void set_header(const char* key, const char* val);
 
     void set_redirect(const char* uri);
@@ -166,7 +169,7 @@ public:
     virtual int read(char* ptr, size_t size) = 0;
     virtual int write(const char* ptr, size_t size1) = 0;
     virtual int write(const char* ptr) = 0;
-    virtual std::string get_remote_addr() = 0;
+    virtual std::string get_remote_addr() const = 0;
 
     template <typename ...Args>
     void write_format(const char* fmt, const Args& ...args);
@@ -180,10 +183,26 @@ public:
     virtual int read(char* ptr, size_t size);
     virtual int write(const char* ptr, size_t size);
     virtual int write(const char* ptr);
-    virtual std::string get_remote_addr();
+    virtual std::string get_remote_addr() const;
 
 private:
     socket_t sock_;
+};
+
+class BufferStream : public Stream {
+public:
+    BufferStream() {}
+    virtual ~BufferStream() {}
+
+    virtual int read(char* ptr, size_t size);
+    virtual int write(const char* ptr, size_t size);
+    virtual int write(const char* ptr);
+    virtual std::string get_remote_addr() const;
+
+    const std::string& get_buffer() const;
+
+private:
+    std::string buffer;
 };
 
 class Server {
@@ -304,6 +323,7 @@ private:
     void write_request(Stream& strm, Request& req);
 
     virtual bool read_and_close_socket(socket_t sock, Request& req, Response& res);
+    virtual bool is_ssl() const;
 };
 
 #ifdef CPPHTTPLIB_OPENSSL_SUPPORT
@@ -315,7 +335,7 @@ public:
     virtual int read(char* ptr, size_t size);
     virtual int write(const char* ptr, size_t size);
     virtual int write(const char* ptr);
-    virtual std::string get_remote_addr();
+    virtual std::string get_remote_addr() const;
 
 private:
     socket_t sock_;
@@ -342,7 +362,7 @@ class SSLClient : public Client {
 public:
     SSLClient(
         const char* host,
-        int port = 80,
+        int port = 443,
         time_t timeout_sec = 300);
 
     virtual ~SSLClient();
@@ -351,6 +371,7 @@ public:
 
 private:
     virtual bool read_and_close_socket(socket_t sock, Request& req, Response& res);
+    virtual bool is_ssl() const;
 
     SSL_CTX* ctx_;
     std::mutex ctx_mutex_;
@@ -753,9 +774,10 @@ inline bool has_header(const Headers& headers, const char* key)
 }
 
 inline const char* get_header_value(
-    const Headers& headers, const char* key, const char* def = nullptr)
+    const Headers& headers, const char* key, size_t id = 0, const char* def = nullptr)
 {
     auto it = headers.find(key);
+    std::advance(it, id);
     if (it != headers.end()) {
         return it->second.c_str();
     }
@@ -887,14 +909,14 @@ bool read_content(Stream& strm, T& x, Progress progress = Progress())
     if (has_header(x.headers, "Content-Length")) {
         auto len = get_header_value_int(x.headers, "Content-Length", 0);
         if (len == 0) {
-            const auto& encoding = get_header_value(x.headers, "Transfer-Encoding", "");
+            const auto& encoding = get_header_value(x.headers, "Transfer-Encoding", 0, "");
             if (!strcasecmp(encoding, "chunked")) {
                 return read_content_chunked(strm, x.body);
             }
         }
         return read_content_with_length(strm, x.body, len, progress);
     } else {
-        const auto& encoding = get_header_value(x.headers, "Transfer-Encoding", "");
+        const auto& encoding = get_header_value(x.headers, "Transfer-Encoding", 0, "");
         if (!strcasecmp(encoding, "chunked")) {
             return read_content_chunked(strm, x.body);
         }
@@ -918,7 +940,8 @@ inline std::string encode_url(const std::string& s)
 
     for (auto i = 0; s[i]; i++) {
         switch (s[i]) {
-        case ' ':  result += "+"; break;
+        case ' ':  result += "%20"; break;
+        case '+':  result += "%2B"; break;
         case '\'': result += "%27"; break;
         case ',':  result += "%2C"; break;
         case ':':  result += "%3A"; break;
@@ -1314,9 +1337,15 @@ inline bool Request::has_header(const char* key) const
     return detail::has_header(headers, key);
 }
 
-inline std::string Request::get_header_value(const char* key) const
+inline std::string Request::get_header_value(const char* key, size_t id) const
 {
-    return detail::get_header_value(headers, key, "");
+    return detail::get_header_value(headers, key, id, "");
+}
+
+inline size_t Request::get_header_value_count(const char* key) const
+{
+    auto r = headers.equal_range(key);
+    return std::distance(r.first, r.second);
 }
 
 inline void Request::set_header(const char* key, const char* val)
@@ -1329,24 +1358,20 @@ inline bool Request::has_param(const char* key) const
     return params.find(key) != params.end();
 }
 
-inline std::string Request::get_param_value(const char* key) const
+inline std::string Request::get_param_value(const char* key, size_t id) const
 {
     auto it = params.find(key);
+    std::advance(it, id);
     if (it != params.end()) {
         return it->second;
     }
     return std::string();
 }
 
-inline void Request::get_param_value_as_vector(std::vector<std::string> &value, const char* key) const
+inline size_t Request::get_param_value_count(const char* key) const
 {
-    value.clear();
-    auto range = params.equal_range(key);
-
-    for(auto it = range.first; it != range.second; it++)
-    {
-        value.push_back((*it).second);
-    }
+    auto r = params.equal_range(key);
+    return std::distance(r.first, r.second);
 }
 
 inline bool Request::has_file(const char* key) const
@@ -1369,9 +1394,15 @@ inline bool Response::has_header(const char* key) const
     return headers.find(key) != headers.end();
 }
 
-inline std::string Response::get_header_value(const char* key) const
+inline std::string Response::get_header_value(const char* key, size_t id) const
 {
-    return detail::get_header_value(headers, key, "");
+    return detail::get_header_value(headers, key, id, "");
+}
+
+inline size_t Response::get_header_value_count(const char* key) const
+{
+    auto r = headers.equal_range(key);
+    return std::distance(r.first, r.second);
 }
 
 inline void Response::set_header(const char* key, const char* val)
@@ -1452,9 +1483,41 @@ inline int SocketStream::write(const char* ptr)
     return write(ptr, strlen(ptr));
 }
 
-inline std::string SocketStream::get_remote_addr() {
+inline std::string SocketStream::get_remote_addr() const {
     return detail::get_remote_addr(sock_);
 }
+
+// Buffer stream implementation
+inline int BufferStream::read(char* ptr, size_t size)
+{
+#ifdef _WIN32
+    return static_cast<int>(buffer._Copy_s(ptr, size, size));
+#else
+    return static_cast<int>(buffer.copy(ptr, size));
+#endif
+}
+
+inline int BufferStream::write(const char* ptr, size_t size)
+{
+    buffer.append(ptr, size);
+    return static_cast<int>(size);
+}
+
+inline int BufferStream::write(const char* ptr)
+{
+    size_t size = strlen(ptr);
+    buffer.append(ptr, size);
+    return static_cast<int>(size);
+}
+
+inline std::string BufferStream::get_remote_addr() const {
+    return "";
+}
+
+inline const std::string& BufferStream::get_buffer() const {
+    return buffer;
+}
+
 
 // HTTP server implementation
 inline Server::Server()
@@ -1605,7 +1668,16 @@ inline void Server::write_response(Stream& strm, bool last_connection, const Req
         res.set_header("Connection", "Keep-Alive");
     }
 
-    if (!res.body.empty()) {
+    if (res.body.empty()) {
+        if (!res.has_header("Content-Length")) {
+            if (res.streamcb) {
+                // Streamed response
+                res.set_header("Transfer-Encoding", "chunked");
+            } else {
+                res.set_header("Content-Length", "0");
+            }
+        }
+    } else {
 #ifdef CPPHTTPLIB_ZLIB_SUPPORT
         // TODO: 'Accpet-Encoding' has gzip, not gzip;q=0
         const auto& encodings = req.get_header_value("Accept-Encoding");
@@ -1622,11 +1694,6 @@ inline void Server::write_response(Stream& strm, bool last_connection, const Req
 
         auto length = std::to_string(res.body.size());
         res.set_header("Content-Length", length.c_str());
-    } else if (res.streamcb) {
-        // Streamed response
-        bool chunked_response = !res.has_header("Content-Length");
-        if (chunked_response)
-            res.set_header("Transfer-Encoding", "chunked");
     }
 
     detail::write_headers(strm, res);
@@ -1984,15 +2051,29 @@ inline bool Client::send(Request& req, Response& res)
 
 inline void Client::write_request(Stream& strm, Request& req)
 {
-    auto path = detail::encode_url(req.path);
+    BufferStream bstrm;
 
     // Request line
-    strm.write_format("%s %s HTTP/1.1\r\n",
+    auto path = detail::encode_url(req.path);
+
+    bstrm.write_format("%s %s HTTP/1.1\r\n",
         req.method.c_str(),
         path.c_str());
 
     // Headers
-    req.set_header("Host", host_and_port_.c_str());
+    if (is_ssl()) {
+        if (port_ == 443) {
+            req.set_header("Host", host_.c_str());
+        } else {
+            req.set_header("Host", host_and_port_.c_str());
+        }
+    } else {
+        if (port_ == 80) {
+            req.set_header("Host", host_.c_str());
+        } else {
+            req.set_header("Host", host_and_port_.c_str());
+        }
+    }
 
     if (!req.has_header("Accept")) {
         req.set_header("Accept", "*/*");
@@ -2020,17 +2101,16 @@ inline void Client::write_request(Stream& strm, Request& req)
         req.set_header("Content-Length", length.c_str());
     }
 
-    detail::write_headers(strm, req);
+    detail::write_headers(bstrm, req);
 
     // Body
     if (!req.body.empty()) {
-        if (req.get_header_value("Content-Type") == "application/x-www-form-urlencoded") {
-            auto str = detail::encode_url(req.body);
-            strm.write(str.c_str(), str.size());
-        } else {
-            strm.write(req.body.c_str(), req.body.size());
-        }
+        bstrm.write(req.body.c_str(), req.body.size());
     }
+
+    // Flush buffer
+    auto& data = bstrm.get_buffer();
+    strm.write(data.data(), data.size());
 }
 
 inline bool Client::process_request(Stream& strm, Request& req, Response& res, bool& connection_close)
@@ -2073,6 +2153,11 @@ inline bool Client::read_and_close_socket(socket_t sock, Request& req, Response&
         [&](Stream& strm, bool /*last_connection*/, bool& connection_close) {
             return process_request(strm, req, res, connection_close);
         });
+}
+
+inline bool Client::is_ssl() const
+{
+    return false;
 }
 
 inline std::shared_ptr<Response> Client::Get(const char* path, Progress progress)
@@ -2314,7 +2399,7 @@ inline int SSLSocketStream::write(const char* ptr)
     return write(ptr, strlen(ptr));
 }
 
-inline std::string SSLSocketStream::get_remote_addr() {
+inline std::string SSLSocketStream::get_remote_addr() const {
     return detail::get_remote_addr(sock_);
 }
 
@@ -2398,10 +2483,15 @@ inline bool SSLClient::read_and_close_socket(socket_t sock, Request& req, Respon
             return process_request(strm, req, res, connection_close);
         });
 }
+
+inline bool SSLClient::is_ssl() const
+{
+    return true;
+}
 #endif
 
 } // namespace httplib
 
-#endif
+#endif //CPPHTTPLIB_HTTPLIB_H
 
 // vim: et ts=4 sw=4 cin cino={1s ff=unix
