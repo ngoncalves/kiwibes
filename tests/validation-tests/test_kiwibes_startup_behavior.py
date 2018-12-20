@@ -48,6 +48,7 @@ def test_invalid_arguments():
 					  ]
 
 	for scenario in zip(cmd_line_args,expected_errors):
+		print scenario
 		error = util.KIWIBES_ERRORS[scenario[1]]
 		args  = scenario[0]
 		

@@ -189,6 +189,7 @@ static void show_copyright(void)
 
 static void signal_handler(int sig)
 {
+  LOG_CRIT << "caught CTRL-C, exiting";
   exit(ERROR_MAIN_INTERRUPTED);
 }
 

@@ -27,6 +27,7 @@ import json
 import pytest 
 import time 
 import os 
+import signal 
 
 @pytest.fixture(autouse=True)
 def setup_cleanup():
@@ -42,8 +43,9 @@ def setup_cleanup():
 	# run the test case
 	yield
 
-	# cleanup and backup the db
-	kiwibes.terminate()
+	# cleanup
+	kiwibes.kill()
+	time.sleep(3.0)
 
 def test_get_invalid_url(): 
 	"""
@@ -412,7 +414,7 @@ def test_stop_job():
 	assert result.json()["start-time"]  == 0.0
 	assert result.json()["nbr-runs"]    == 1
 
-	# verify that the job did not full ran
+	# verify that the job did not ran to completion
 	assert False == os.path.isfile(os.path.join(util.KIWIBES_HOME,"hello_world.txt"))
 
 def test_queue_jobs():

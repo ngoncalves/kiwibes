@@ -411,7 +411,11 @@ static bool read_job_parameters(nlohmann::json &params, const httplib::Request &
   if(true == req.has_param("program"))
   {
     std::vector<std::string> program;
-    req.get_param_value_as_vector(program,"program");
+    for(size_t p = 0; p < req.get_param_value_count("program"); p++)
+    {
+      program.push_back(req.get_param_value("program",p));  
+    }
+    
     params["program"] = program;
   } 
   else
