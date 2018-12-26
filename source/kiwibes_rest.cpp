@@ -32,10 +32,11 @@
 /*--------------------------Private Data Definitions -------------------------------*/
 /** Private pointers to the Kiwibes components
  */
-static KiwibesDatabase    *pDatabase;
-static KiwibesDataStore   *pDataStore;
-static KiwibesJobsManager *pManager;
-static KiwibesScheduler   *pScheduler;
+static KiwibesDatabase       *pDatabase;
+static KiwibesDataStore      *pDataStore;
+static KiwibesJobsManager    *pManager;
+static KiwibesScheduler      *pScheduler;
+static KiwibesAuthentication *pAuthentication;
 
 /*--------------------------Private Function Declarations -------------------------------*/
 
@@ -150,13 +151,19 @@ static void get_read_data(const httplib::Request& req, httplib::Response& res);
 static void set_return_code(httplib::Response& res, T_KIWIBES_ERROR error);
 
 /*--------------------------Public Function Definitions -------------------------------*/
-void setup_rest_interface(httplib::Server *http, KiwibesJobsManager *manager, KiwibesScheduler *scheduler, KiwibesDatabase *database, KiwibesDataStore *store)
+void setup_rest_interface(httplib::Server *http,
+                          KiwibesJobsManager *manager,
+                          KiwibesScheduler *scheduler,
+                          KiwibesDatabase *database,
+                          KiwibesDataStore *store,
+                          KiwibesAuthentication *authentication)
 {
   /* setup the private pointers */
-  pDatabase  = database; 
-  pDataStore = store; 
-  pScheduler = scheduler;
-  pManager   = manager;  
+  pDatabase       = database; 
+  pDataStore      = store; 
+  pScheduler      = scheduler;
+  pManager        = manager;  
+  pAuthentication = authentication;
 
   /* setup the HTTP REST route handlers */
   http->Post("/rest/job/start/([a-zA-Z_0-9]+)",post_start_job);
@@ -182,44 +189,80 @@ void setup_rest_interface(httplib::Server *http, KiwibesJobsManager *manager, Ki
 /*--------------------------Private Function Definitions -------------------------------*/
 static void post_start_job(const httplib::Request& req, httplib::Response& res)
 {
-  set_return_code(res,pManager->start_job(req.matches[1]));
+  T_KIWIBES_ERROR error = ERROR_NO_ERROR;
+
+  if((true != req.has_param("auth")) ||
+     (true != pAuthentication->verify_auth_token(req.get_param_value("auth")))
+    )
+  {
+    error  = ERROR_AUTHENTICATION_FAIL;
+  }
+  else
+  {
+    error = pManager->start_job(req.matches[1]);
+  }
+  
+  set_return_code(res,error); 
 }
 
 static void post_stop_job(const httplib::Request& req, httplib::Response& res)
 {
-  set_return_code(res,pManager->stop_job(req.matches[1]));
+  T_KIWIBES_ERROR error = ERROR_NO_ERROR;
+
+  if((true != req.has_param("auth")) ||
+     (true != pAuthentication->verify_auth_token(req.get_param_value("auth")))
+    )
+  {
+    error  = ERROR_AUTHENTICATION_FAIL;
+  }
+  else
+  {
+    error = pManager->stop_job(req.matches[1]);
+  }
+  
+  set_return_code(res,error); 
 }
 
 static void post_create_job(const httplib::Request& req, httplib::Response& res)
 {
-  nlohmann::json params; 
   T_KIWIBES_ERROR error = ERROR_NO_ERROR;
+  nlohmann::json  params;
 
-  if(false == read_job_parameters(params,req))
+  if((true != req.has_param("auth")) ||
+     (true != pAuthentication->verify_auth_token(req.get_param_value("auth")))
+    )
   {
-    error = ERROR_JOB_DESCRIPTION_INVALID;
-    LOG_INFO << "job description invalid";
+    error  = ERROR_AUTHENTICATION_FAIL;
   }
-  else
-  {
-    error = pDatabase->create_job(req.matches[1],params);
-  
-    if(ERROR_NO_ERROR == error)
-    {
-      /* if the job was created and can be scheduled, then scheduled it */
-      std::string schedule = params["schedule"].get<std::string>();
-      KiwibesCron cron(schedule);
 
-      if((0 < schedule.size()) && (true == cron.is_valid()))
-      {
-        pScheduler->schedule_job(req.matches[1]);
-      }
-      else if((0 < schedule.size()) && (false == cron.is_valid()))
-      {
-        /* invalid schedule, delete the job */
-        pDatabase->delete_job(req.matches[1]);
-        error = ERROR_JOB_SCHEDULE_INVALID;
-      }
+  if(ERROR_NO_ERROR == error)
+  {  
+    if(false == read_job_parameters(params,req))
+    {
+      error = ERROR_JOB_DESCRIPTION_INVALID;
+      LOG_INFO << "job description invalid";
+    }
+    else
+    {
+      error = pDatabase->create_job(req.matches[1],params);
+    }
+  }
+
+  if(ERROR_NO_ERROR == error)
+  {
+    /* if the job was created and can be scheduled, then scheduled it */
+    std::string schedule = params["schedule"].get<std::string>();
+    KiwibesCron cron(schedule);
+
+    if((0 < schedule.size()) && (true == cron.is_valid()))
+    {
+      pScheduler->schedule_job(req.matches[1]);
+    }
+    else if((0 < schedule.size()) && (false == cron.is_valid()))
+    {
+      /* invalid schedule, delete the job */
+      pDatabase->delete_job(req.matches[1]);
+      error = ERROR_JOB_SCHEDULE_INVALID;
     }
   }
   
@@ -228,74 +271,116 @@ static void post_create_job(const httplib::Request& req, httplib::Response& res)
 
 static void post_edit_job(const httplib::Request& req, httplib::Response& res)
 {
-  nlohmann::json params; 
   T_KIWIBES_ERROR error = ERROR_NO_ERROR;
+  nlohmann::json  params; 
 
-  if(false == read_job_parameters(params,req))
+  if((true != req.has_param("auth")) ||
+     (true != pAuthentication->verify_auth_token(req.get_param_value("auth")))
+    )
   {
-    error = ERROR_JOB_DESCRIPTION_INVALID;
+    error  = ERROR_AUTHENTICATION_FAIL;
   }
-  else
-  {
-    error = pDatabase->edit_job(req.matches[1],params);
-  
-    if(ERROR_NO_ERROR == error)
-    {
-      /* if the job was edited and can be scheduled, then scheduled it */
-      std::string schedule = params["schedule"].get<std::string>();
-      KiwibesCron cron(schedule);
 
-      if(cron.is_valid())
-      {
-        pScheduler->unschedule_job(req.matches[1]);
-        pScheduler->schedule_job(req.matches[1]);
-      }
-      else if(0 == schedule.size())
-      {
-        pScheduler->unschedule_job(req.matches[1]);  
-      }
-      else if((0 < schedule.size()) && (false == cron.is_valid()))
-      {
-        /* invalid schedule, delete the job */
-        pDatabase->delete_job(req.matches[1]);
-        error = ERROR_JOB_SCHEDULE_INVALID;
-      }
+  if(ERROR_NO_ERROR == error)
+  {
+    if(false == read_job_parameters(params,req))
+    {
+      error = ERROR_JOB_DESCRIPTION_INVALID;
+    }
+    else
+    {
+      error = pDatabase->edit_job(req.matches[1],params);
     }
   }
+  
+  if(ERROR_NO_ERROR == error)
+  {
+    /* if the job was edited and can be scheduled, then scheduled it */
+    std::string schedule = params["schedule"].get<std::string>();
+    KiwibesCron cron(schedule);
 
-  set_return_code(res,error);
+    if(cron.is_valid())
+    {
+      pScheduler->unschedule_job(req.matches[1]);
+      pScheduler->schedule_job(req.matches[1]);
+    }
+    else if(0 == schedule.size())
+    {
+      pScheduler->unschedule_job(req.matches[1]);  
+    }
+    else if((0 < schedule.size()) && (false == cron.is_valid()))
+    {
+      /* invalid schedule, delete the job */
+      pDatabase->delete_job(req.matches[1]);
+      error = ERROR_JOB_SCHEDULE_INVALID;
+    }
+  }
+  
+  set_return_code(res,error); 
 }
 
 static void post_delete_job(const httplib::Request& req, httplib::Response& res)
 {
-  T_KIWIBES_ERROR error = pDatabase->delete_job(req.matches[1]);
+  T_KIWIBES_ERROR error = ERROR_NO_ERROR;
 
-  if(ERROR_NO_ERROR == error)
+  if((true != req.has_param("auth")) ||
+     (true != pAuthentication->verify_auth_token(req.get_param_value("auth")))
+    )
   {
-    /* unschedule the job, if it was previously scheduled */
-    pScheduler->unschedule_job(req.matches[1]);  
+    error  = ERROR_AUTHENTICATION_FAIL;
+  }
+  else
+  {
+    error = pDatabase->delete_job(req.matches[1]);    
+
+    if(ERROR_NO_ERROR == error)
+    {
+      /* unschedule the job, if it was previously scheduled */
+      pScheduler->unschedule_job(req.matches[1]);  
+    }
   }
 
-  set_return_code(res,error);
+  set_return_code(res,error);    
 }
 
 static void post_clear_pending_job(const httplib::Request& req, httplib::Response& res)
 {
-  set_return_code(res,pDatabase->job_clear_start_requests(req.matches[1]));
+  T_KIWIBES_ERROR error = ERROR_NO_ERROR;
+
+  if((true != req.has_param("auth")) ||
+     (true != pAuthentication->verify_auth_token(req.get_param_value("auth")))
+    )
+  {
+    error  = ERROR_AUTHENTICATION_FAIL;
+  }
+  else
+  {  
+    error = pDatabase->job_clear_start_requests(req.matches[1]);
+  }
+
+  set_return_code(res,error); 
 }
 
 static void get_get_job(const httplib::Request& req, httplib::Response& res)
 {
-  nlohmann::json job; 
-  
-  if(ERROR_JOB_NAME_UNKNOWN == pDatabase->get_job_description(job,req.matches[1]))
+  if((true != req.has_param("auth")) ||
+     (true != pAuthentication->verify_auth_token(req.get_param_value("auth")))
+    )
   {
-    set_return_code(res,ERROR_JOB_NAME_UNKNOWN);
+    set_return_code(res,ERROR_AUTHENTICATION_FAIL); 
   }
-  else
+  else  
   {
-    res.status = 200;
-    res.set_content(job.dump(),"application/json");
+    nlohmann::json job;
+    if(ERROR_JOB_NAME_UNKNOWN == pDatabase->get_job_description(job,req.matches[1]))
+    {
+      set_return_code(res,ERROR_JOB_NAME_UNKNOWN);
+    }
+    else
+    {
+      res.status = 200;
+      res.set_content(job.dump(),"application/json");
+    }
   }
 }
 
@@ -325,48 +410,92 @@ static void post_write_data(const httplib::Request& req, httplib::Response& res)
 {
   T_KIWIBES_ERROR error = ERROR_NO_ERROR;
 
-  if(true == req.has_param("value"))
+  if((true != req.has_param("auth")) ||
+     (true != pAuthentication->verify_auth_token(req.get_param_value("auth")))
+    )
   {
-    error = pDataStore->write(req.matches[1],req.get_param_value("value"));
+    error = ERROR_AUTHENTICATION_FAIL; 
   }
   else
   {
-    error = ERROR_EMPTY_REST_REQUEST;
+    if(true == req.has_param("value"))
+    {
+      error = pDataStore->write(req.matches[1],req.get_param_value("value"));
+    }
+    else
+    {
+      error = ERROR_EMPTY_REST_REQUEST;
+    }    
   }
-
-  set_return_code(res,error);
+  
+  set_return_code(res,error);  
 }
 
 static void post_clear_data(const httplib::Request& req, httplib::Response& res)
 {
-  set_return_code(res,pDataStore->clear(req.matches[1]));
+  T_KIWIBES_ERROR error = ERROR_NO_ERROR;
+
+  if((true != req.has_param("auth")) ||
+     (true != pAuthentication->verify_auth_token(req.get_param_value("auth")))
+    )
+  {
+    error = ERROR_AUTHENTICATION_FAIL; 
+  }
+  else
+  {
+    error = pDataStore->clear(req.matches[1]);
+  }
+
+  set_return_code(res,error);  
 }
 
 static void post_clear_all_data(const httplib::Request& req, httplib::Response& res)
 {
-  nlohmann::json result;
-  result["count"] = pDataStore->clear_all();
+  T_KIWIBES_ERROR error = ERROR_NO_ERROR;
 
-  res.set_content(result.dump(),"application/json");
+  if((true != req.has_param("auth")) ||
+     (true != pAuthentication->verify_auth_token(req.get_param_value("auth")))
+    )
+  {
+    error = ERROR_AUTHENTICATION_FAIL; 
+  }
+  else
+  {
+    nlohmann::json result;
+    result["count"] = pDataStore->clear_all();
+
+    res.set_content(result.dump(),"application/json");
+  }
+
+  set_return_code(res,error);  
 }
 
 static void get_read_data(const httplib::Request& req, httplib::Response& res)
 {
-  std::string value; 
-  T_KIWIBES_ERROR error = pDataStore->read(value,req.matches[1]);
+  T_KIWIBES_ERROR error = ERROR_NO_ERROR;
 
-  if(ERROR_NO_ERROR == error)
+  if((true != req.has_param("auth")) ||
+     (true != pAuthentication->verify_auth_token(req.get_param_value("auth")))
+    )
   {
-    res.status = 200; /* ok */
-    nlohmann::json jvalue;
-
-    jvalue["value"] = value;
-    res.set_content(jvalue.dump(),"application/json");   
+    error = ERROR_AUTHENTICATION_FAIL; 
   }
   else
   {
-    set_return_code(res,error);
-  } 
+    std::string value; 
+    error = pDataStore->read(value,req.matches[1]);
+
+    if(ERROR_NO_ERROR == error)
+    {
+      res.status = 200; /* ok */
+      nlohmann::json jvalue;
+
+      jvalue["value"] = value;
+      res.set_content(jvalue.dump(),"application/json");   
+    }
+  }
+  
+  set_return_code(res,error); 
 }
 
 static void rest_logger(const httplib::Request& req, const httplib::Response& res)
@@ -489,6 +618,13 @@ static void set_return_code(httplib::Response& res, T_KIWIBES_ERROR error)
       res.status = 403;   /* Not allowed */
       description["message"] = "Job is running";
       break;
+      
+#if defined(_KIWIBES_AUTHENTICATION_)
+    case ERROR_AUTHENTICATION_FAIL:
+      res.status = 403;   /* Not allowed */
+      description["message"] = "Authentication failed";
+      break;
+#endif 
       
     default:
       res.status = 500;   /* Generic server error */

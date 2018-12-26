@@ -48,6 +48,7 @@ typedef enum{
   ERROR_DATA_KEY_TAKEN,                   /* the name of the data already exists */
   ERROR_DATA_KEY_UNKNOWN,                 /* the name of the data does not exist */
   ERROR_DATA_STORE_FULL,                  /* no more space in the data store */ 
+  ERROR_AUTHENTICATION_FAIL,              /* failed the authentication verification */
 } T_KIWIBES_ERROR;
 
 #endif

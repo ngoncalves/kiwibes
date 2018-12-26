@@ -33,6 +33,11 @@ UNIT_TESTS 		:= $(TESTS)/unit-tests
 VLD_TESTS  		:= $(TESTS)/validation-tests
 
 #----------------------------------------------------------------------------
+# Build Options
+#----------------------------------------------------------------------------
+KIWIBES_OPTIONS := -DCRON_USE_LOCAL_TIME
+
+#----------------------------------------------------------------------------
 # Targets
 #----------------------------------------------------------------------------
 
@@ -49,7 +54,7 @@ help:
 	@echo '--------------------------------------------------------------------------'
 
 kiwibes:
-	make -C $(SOURCE)/
+	make -C $(SOURCE)/ OPTIONS=$(KIWIBES_OPTIONS)
 
 ut-kiwibes:
 	python $(TESTS)/util/generate_ut.py Kiwibes $(UNIT_TESTS)

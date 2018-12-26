@@ -78,9 +78,9 @@ KiwibesJobsManager::~KiwibesJobsManager()
   stop_all_jobs();
 
   watcherExit = true;
-  LOG_INFO << "waiting for the watcher thread to finish"; 
+  LOG_INFO << "waiting for the jobs watcher thread to finish"; 
   watcher->join();
-  LOG_INFO << "the watcher thread has finished";
+  LOG_INFO << "the jobs watcher thread has finished";
 }
 
 T_KIWIBES_ERROR KiwibesJobsManager::start_job(const std::string &name)

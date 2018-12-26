@@ -31,21 +31,25 @@
 #include "kiwibes_data_store.h"
 #include "kiwibes_jobs_manager.h"
 #include "kiwibes_scheduler.h"
+#include "kiwibes_authentication.h"
 
 #include "cpp-httplib/httplib.h"
 
 /*-------------------------- Public Function Declarations -------------------------------*/
+
 /** Setup the REST HTTP route handlers
  
-  @param http       pointer to the HTTP server
-  @param manager    pointer to the Kiwibes jobs manager
-  @param scheduler  pointer to the Kiwibes jobs scheduler
-  @param database   pointer to the Kiwibes database interface 
-  @param database   pointer to the Kiwibes data store interface 
+  @param http           pointer to the HTTP server
+  @param manager        pointer to the Kiwibes jobs manager
+  @param scheduler      pointer to the Kiwibes jobs scheduler
+  @param database       pointer to the Kiwibes database interface 
+  @param database       pointer to the Kiwibes data store interface 
+  @param authentication pointer to the Kiwibes authentication
 */
 void setup_rest_interface(httplib::Server *http,
                           KiwibesJobsManager *manager,
                           KiwibesScheduler *scheduler,
                           KiwibesDatabase *database,
-                          KiwibesDataStore *store);
+                          KiwibesDataStore *store,
+                          KiwibesAuthentication *authentication);
 #endif

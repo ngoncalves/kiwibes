@@ -34,6 +34,7 @@
 #include "kiwibes_errors.h"
 #include "kiwibes_cmd_line.h"
 #include "kiwibes_rest.h"
+#include "kiwibes_authentication.h"
 
 #include "cpp-httplib/httplib.h"
 #include "NanoLog/NanoLog.hpp"
@@ -51,16 +52,17 @@
 /*--------------------------Private Data Definitions -------------------------------*/
 /** Copyright and version information
  */
-#define KIWIBES_VERSION         "1.0.0"
+#define KIWIBES_VERSION         "1.1.0"
 #define KIWIBES_COPYRIGHT_YEARS "2018"
 
 /** The Kiwibes components
  */
-static KiwibesDatabase    *database       = nullptr;    /* database interface */
-static KiwibesDataStore   *data_store     = nullptr;    /* data store interface */
-static KiwibesJobsManager *jobs_manager   = nullptr;    /* jobs execution manager */
-static KiwibesScheduler   *jobs_scheduler = nullptr;    /* jobs scheduler */
-static httplib::Server    *http           = nullptr;    /* HTTP server, for the REST interface */  
+static KiwibesDatabase       *database       = nullptr;    /* database interface */
+static KiwibesDataStore      *data_store     = nullptr;    /* data store interface */
+static KiwibesJobsManager    *jobs_manager   = nullptr;    /* jobs execution manager */
+static KiwibesScheduler      *jobs_scheduler = nullptr;    /* jobs scheduler */
+static httplib::Server       *http           = nullptr;    /* HTTP server, for the REST interface */  
+static KiwibesAuthentication *authentication = nullptr;    /* REST authentication */
 
 /*--------------------------Private Function Declarations -------------------------------*/
 /** Clean up the server on exit
@@ -172,6 +174,11 @@ static void cleanup(void)
     delete data_store;
   }
 
+  if(nullptr != authentication)
+  {
+    delete authentication;
+  }
+
   if(nullptr != database)
   {
     database->save();
@@ -213,8 +220,9 @@ static void start_logging(T_CMD_LINE_OPTIONS &options)
 
 static T_KIWIBES_ERROR initialize_kiwibes(T_CMD_LINE_OPTIONS &options)
 {
-  T_KIWIBES_ERROR error        = ERROR_NO_ERROR;
-  std::string     jobs_db_file = *(options.home) + std::string("kiwibes.json"); 
+  T_KIWIBES_ERROR error               = ERROR_NO_ERROR;
+  std::string     jobs_db_file        = *(options.home) + std::string("kiwibes.json"); 
+  std::string     authentication_file = *(options.home) + std::string("kiwibes.auth"); 
 
   std::cout << "[INFO] loading the Kiwibes jobs database from: " << jobs_db_file << std::endl;
   LOG_INFO << "loading the Kiwibes jobs database from: " << jobs_db_file;
@@ -234,6 +242,7 @@ static T_KIWIBES_ERROR initialize_kiwibes(T_CMD_LINE_OPTIONS &options)
     jobs_manager   = new KiwibesJobsManager(database);
     jobs_scheduler = new KiwibesScheduler(database,jobs_manager);
     http           = new httplib::Server;
+    authentication = new KiwibesAuthentication(authentication_file);
 
     /* schedule all jobs that have a valid schedule */
     jobs_scheduler->start();
@@ -250,7 +259,7 @@ static T_KIWIBES_ERROR initialize_kiwibes(T_CMD_LINE_OPTIONS &options)
     }
   
     /* setup the REST interface */
-    setup_rest_interface(http,jobs_manager,jobs_scheduler,database,data_store);
+    setup_rest_interface(http,jobs_manager,jobs_scheduler,database,data_store,authentication);
 
     /* initialization is complete */
     std::cout << "[INFO] the Kiwibes server is initialized" << std::endl;

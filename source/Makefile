@@ -34,7 +34,7 @@ LIBS   := -pthread
 # Build Tools
 #----------------------------------------------------------------------------
 CC      := g++ 
-OPTIONS := -DCRON_USE_LOCAL_TIME
+OPTIONS := $(OPTIONS)
 CFLAGS  := -std=c++11 -Wall -Werror -O2 $(OPTIONS) -I $(INCS) 
 
 BIN     := $(BUILD)/kiwibes
