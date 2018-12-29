@@ -53,7 +53,7 @@ void test_parse_and_validate_command_line(void)
     
     ASSERT(ERROR_NO_ERROR == parse_and_validate_command_line(options,argc,(char **)argv));    
     ASSERT(std::string("./") == *(options.home));    
-    ASSERT(4242 == options.http_port);    
+    ASSERT(4242 == options.https_port);    
     ASSERT(1 == options.log_max_size);    
     ASSERT(0 == options.log_level);    
   }
@@ -74,7 +74,7 @@ void test_parse_and_validate_command_line(void)
     
     ASSERT(ERROR_NO_ERROR == parse_and_validate_command_line(options,argc,(char **)argv));    
     ASSERT(std::string("./") == *(options.home));    
-    ASSERT(31415 == options.http_port);    
+    ASSERT(31415 == options.https_port);    
     ASSERT(100 == options.log_max_size);    
     ASSERT(2 == options.log_level);    
     ASSERT(3 == options.data_store_size);    

@@ -61,7 +61,7 @@ static KiwibesDatabase       *database       = nullptr;    /* database interface
 static KiwibesDataStore      *data_store     = nullptr;    /* data store interface */
 static KiwibesJobsManager    *jobs_manager   = nullptr;    /* jobs execution manager */
 static KiwibesScheduler      *jobs_scheduler = nullptr;    /* jobs scheduler */
-static httplib::Server       *http           = nullptr;    /* HTTP server, for the REST interface */  
+static httplib::SSLServer    *https          = nullptr;    /* HTTPS server, for the REST interface */  
 static KiwibesAuthentication *authentication = nullptr;    /* REST authentication */
 
 /*--------------------------Private Function Declarations -------------------------------*/
@@ -105,7 +105,7 @@ int main(int argc, char **argv)
     - parse the command line 
     - start the logging server
     - instantiate the Kiwibes components
-    - run the HTTP server main loop
+    - run the HTTPS server main loop
    */
   atexit(cleanup);
 
@@ -138,11 +138,11 @@ int main(int argc, char **argv)
 
   if(ERROR_NO_ERROR == error)
   {
-    /* run the HTTP server */
-    std::cout << "Listening on the HTTP REST interface on port " << options.http_port << std::endl;
-    LOG_INFO << "Listening on the HTTP REST interface on port " << options.http_port;
+    /* run the HTTPS server */
+    std::cout << "Listening on the HTTPS port " << options.https_port << std::endl;
+    LOG_INFO << "Listening on the HTTPS port " << options.https_port;
     
-    http->listen("localhost",options.http_port);
+    https->listen("localhost",options.https_port);
   }
 
   return error;
@@ -151,10 +151,10 @@ int main(int argc, char **argv)
 /*--------------------------Private Function Definitions -------------------------------*/
 static void cleanup(void)
 {
-  if(nullptr != http)
+  if(nullptr != https)
   {
-    http->stop();
-    delete http; 
+    https->stop();
+    delete https; 
   }
 
   if(nullptr != jobs_scheduler)
@@ -222,7 +222,9 @@ static T_KIWIBES_ERROR initialize_kiwibes(T_CMD_LINE_OPTIONS &options)
 {
   T_KIWIBES_ERROR error               = ERROR_NO_ERROR;
   std::string     jobs_db_file        = *(options.home) + std::string("kiwibes.json"); 
-  std::string     authentication_file = *(options.home) + std::string("kiwibes.auth"); 
+  std::string     authentication_file = *(options.home) + std::string("kiwibes.auth");
+  std::string     server_certificate  = *(options.home) + std::string("kiwibes.cert");
+  std::string     server_priv_key     = *(options.home) + std::string("kiwibes.key");
 
   std::cout << "[INFO] loading the Kiwibes jobs database from: " << jobs_db_file << std::endl;
   LOG_INFO << "loading the Kiwibes jobs database from: " << jobs_db_file;
@@ -241,9 +243,26 @@ static T_KIWIBES_ERROR initialize_kiwibes(T_CMD_LINE_OPTIONS &options)
     data_store     = new KiwibesDataStore(options.data_store_size);
     jobs_manager   = new KiwibesJobsManager(database);
     jobs_scheduler = new KiwibesScheduler(database,jobs_manager);
-    http           = new httplib::Server;
     authentication = new KiwibesAuthentication(authentication_file);
+    https          = new httplib::SSLServer(server_certificate.c_str(),server_priv_key.c_str());
 
+    if(false == https->is_valid())
+    {
+      LOG_CRIT  << "failed to load the HTTPS server certificate and/or private key from: " << *(options.home);
+      std::cout << "[ERROR] failed to load the HTTPS server certificate and/or private key from: " << *(options.home) << std::endl;
+      error = ERROR_HTTPS_CERTS_FAIL;
+    }
+    else
+    {
+      LOG_INFO  << "loaded the HTTPS server certificate: " << server_certificate;
+      LOG_INFO  << "loaded the HTTPS server private key: " << server_priv_key;
+      std::cout << "[INFO] loaded the HTTPS server certificate: " << server_certificate << std::endl;      
+      std::cout << "[INFO] loaded the HTTPS server private key: " << server_priv_key << std::endl;      
+    }
+  }
+
+  if(ERROR_NO_ERROR == error)
+  {
     /* schedule all jobs that have a valid schedule */
     jobs_scheduler->start();
   
@@ -259,7 +278,7 @@ static T_KIWIBES_ERROR initialize_kiwibes(T_CMD_LINE_OPTIONS &options)
     }
   
     /* setup the REST interface */
-    setup_rest_interface(http,jobs_manager,jobs_scheduler,database,data_store,authentication);
+    setup_rest_interface(https,jobs_manager,jobs_scheduler,database,data_store,authentication);
 
     /* initialization is complete */
     std::cout << "[INFO] the Kiwibes server is initialized" << std::endl;

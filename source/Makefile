@@ -28,14 +28,14 @@
 SOURCE := .
 BUILD  := ../build
 INCS   := ../3rd_party
-LIBS   := -pthread
+LIBS   := -pthread $(shell pkg-config --libs openssl) -dl
 
 #----------------------------------------------------------------------------
 # Build Tools
 #----------------------------------------------------------------------------
 CC      := g++ 
-OPTIONS := $(OPTIONS)
-CFLAGS  := -std=c++11 -Wall -Werror -O2 $(OPTIONS) -I $(INCS) 
+OPTIONS := -DCPPHTTPLIB_OPENSSL_SUPPORT -DCRON_USE_LOCAL_TIME
+CFLAGS  := -std=c++11 -Wall -Werror -O2 $(OPTIONS) $(shell pkg-config --cflags openssl) -I $(INCS) 
 
 BIN     := $(BUILD)/kiwibes
 SOURCES := $(wildcard $(SOURCE)/*.cpp)
@@ -49,7 +49,7 @@ all: $(OBJECTS) NanoLog CCronExpr
 	@echo '============================================='
 	@echo 'Building the Kiwibes Automation Server       '
 	@echo '============================================='
-	$(CC) $(LIBS) -o $(BIN) $(BUILD)/NanoLog.o $(BUILD)/ccronexpr.o $(OBJECTS) 
+	$(CC) -o $(BIN) $(BUILD)/NanoLog.o $(BUILD)/ccronexpr.o $(OBJECTS) $(LIBS) 
 
 NanoLog:
 	$(CC) $(CFLAGS) -c -o $(BUILD)/NanoLog.o ../3rd_party/NanoLog/NanoLog.cpp

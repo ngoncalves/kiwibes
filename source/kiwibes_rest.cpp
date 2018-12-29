@@ -151,7 +151,7 @@ static void get_read_data(const httplib::Request& req, httplib::Response& res);
 static void set_return_code(httplib::Response& res, T_KIWIBES_ERROR error);
 
 /*--------------------------Public Function Definitions -------------------------------*/
-void setup_rest_interface(httplib::Server *http,
+void setup_rest_interface(httplib::SSLServer *https,
                           KiwibesJobsManager *manager,
                           KiwibesScheduler *scheduler,
                           KiwibesDatabase *database,
@@ -166,24 +166,24 @@ void setup_rest_interface(httplib::Server *http,
   pAuthentication = authentication;
 
   /* setup the HTTP REST route handlers */
-  http->Post("/rest/job/start/([a-zA-Z_0-9]+)",post_start_job);
-  http->Post("/rest/job/stop/([a-zA-Z_0-9]+)",post_stop_job);
-  http->Post("/rest/job/create/([a-zA-Z_0-9]+)",post_create_job);    
-  http->Post("/rest/job/edit/([a-zA-Z_0-9]+)",post_edit_job);    
-  http->Post("/rest/job/delete/([a-zA-Z_0-9]+)",post_delete_job);    
-  http->Post("/rest/job/clear_pending/([a-zA-Z_0-9]+)",post_clear_pending_job);    
-  http->Get( "/rest/job/details/([a-zA-Z_0-9]+)",get_get_job);
+  https->Post("/rest/job/start/([a-zA-Z_0-9]+)",post_start_job);
+  https->Post("/rest/job/stop/([a-zA-Z_0-9]+)",post_stop_job);
+  https->Post("/rest/job/create/([a-zA-Z_0-9]+)",post_create_job);    
+  https->Post("/rest/job/edit/([a-zA-Z_0-9]+)",post_edit_job);    
+  https->Post("/rest/job/delete/([a-zA-Z_0-9]+)",post_delete_job);    
+  https->Post("/rest/job/clear_pending/([a-zA-Z_0-9]+)",post_clear_pending_job);    
+  https->Get( "/rest/job/details/([a-zA-Z_0-9]+)",get_get_job);
 
-  http->Post("/rest/data/write/([a-zA-Z_0-9]+)",post_write_data);    
-  http->Post("/rest/data/clear/([a-zA-Z_0-9]+)",post_clear_data);    
-  http->Post("/rest/data/clear_all",post_clear_all_data);    
-  http->Get( "/rest/data/read/([a-zA-Z_0-9]+)",get_read_data);    
+  https->Post("/rest/data/write/([a-zA-Z_0-9]+)",post_write_data);    
+  https->Post("/rest/data/clear/([a-zA-Z_0-9]+)",post_clear_data);    
+  https->Post("/rest/data/clear_all",post_clear_all_data);    
+  https->Get( "/rest/data/read/([a-zA-Z_0-9]+)",get_read_data);    
   
-  http->Get("/rest/jobs/list",get_jobs_list);
-  http->Get("/rest/jobs/scheduled",get_scheduled_jobs);
+  https->Get("/rest/jobs/list",get_jobs_list);
+  https->Get("/rest/jobs/scheduled",get_scheduled_jobs);
       
   /* setup the logger */
-  http->set_logger(rest_logger);
+  https->set_logger(rest_logger);
 }
 
 /*--------------------------Private Function Definitions -------------------------------*/

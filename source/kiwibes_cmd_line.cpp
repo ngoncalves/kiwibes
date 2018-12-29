@@ -60,7 +60,7 @@ T_KIWIBES_ERROR parse_and_validate_command_line(T_CMD_LINE_OPTIONS &options, int
   /* set the default options */
   options.log_level       = 0;     /* log critical messages only */
   options.log_max_size    = 1;     /* 1 MB log file size */
-  options.http_port       = 4242;  /* listen on port 4242 */
+  options.https_port      = 4242;  /* listen on port 4242 */
   options.data_store_size = 10;    /* maximum data store size, 10 MB */
 
   T_KIWIBES_ERROR error = parse_command_line(options,argc,argv);
@@ -80,7 +80,7 @@ void show_cmd_line_help(void)
   std::cout << "The options set different working parameters:" << std::endl;
   std::cout << "  -l UINT : log level, must be in the range [0,2]. Default is 0 (aka critical messages only)" << std::endl;
   std::cout << "  -s UINT : log maximum size in MB, must be less than 100. Default is 1 MB" << std::endl;
-  std::cout << "  -p UINT : HTTP listening port. Default is 4242" << std::endl;
+  std::cout << "  -p UINT : HTTPS listening port. Default is 4242" << std::endl;
   std::cout << "  -d UINT : maxium size in MB, for the data store. Default is 10 MB, must be less than 100 MB" << std::endl;
   std::cout << std::endl;
 }
@@ -114,7 +114,7 @@ static T_KIWIBES_ERROR parse_command_line(T_CMD_LINE_OPTIONS &options, int argc,
       else if((0 == strcmp("-p",argv[a])) && (a + 1) < argc) 
       {
         a++;
-        options.http_port = strtol(argv[a],NULL,10);  
+        options.https_port = strtol(argv[a],NULL,10);  
       }
       else if((0 == strcmp("-d",argv[a])) && (a + 1) < argc) 
       {

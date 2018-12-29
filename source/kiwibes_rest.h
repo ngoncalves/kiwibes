@@ -39,14 +39,14 @@
 
 /** Setup the REST HTTP route handlers
  
-  @param http           pointer to the HTTP server
+  @param httpS          pointer to the HTTPS server
   @param manager        pointer to the Kiwibes jobs manager
   @param scheduler      pointer to the Kiwibes jobs scheduler
   @param database       pointer to the Kiwibes database interface 
   @param database       pointer to the Kiwibes data store interface 
   @param authentication pointer to the Kiwibes authentication
 */
-void setup_rest_interface(httplib::Server *http,
+void setup_rest_interface(httplib::SSLServer *https,
                           KiwibesJobsManager *manager,
                           KiwibesScheduler *scheduler,
                           KiwibesDatabase *database,

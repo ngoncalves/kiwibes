@@ -33,11 +33,6 @@ UNIT_TESTS 		:= $(TESTS)/unit-tests
 VLD_TESTS  		:= $(TESTS)/validation-tests
 
 #----------------------------------------------------------------------------
-# Build Options
-#----------------------------------------------------------------------------
-KIWIBES_OPTIONS := -DCRON_USE_LOCAL_TIME
-
-#----------------------------------------------------------------------------
 # Targets
 #----------------------------------------------------------------------------
 
@@ -49,12 +44,13 @@ help:
 	@echo '  kiwibes      	: build the Kiwibes Automation Server'
 	@echo '  ut-kiwibes   	: build and run the unit tests for Kiwibes'
 	@echo '  vld-kiwibes	: run the validation tests for Kiwibes'
+	@echo '  kiwibes-cert	: create the server private key and self-signed certificate'
 	@echo '  clean        	: clear the build directory'
 	@echo '  help         	: this text'
 	@echo '--------------------------------------------------------------------------'
 
 kiwibes:
-	make -C $(SOURCE)/ OPTIONS=$(KIWIBES_OPTIONS)
+	make -C $(SOURCE)
 
 ut-kiwibes:
 	python $(TESTS)/util/generate_ut.py Kiwibes $(UNIT_TESTS)
@@ -63,6 +59,20 @@ ut-kiwibes:
 
 vld-kiwibes: kiwibes
 	-python -m pytest -v $(VLD_TESTS)
+
+#----------------------------------------------------------------------------
+# OpenSSL Options
+#----------------------------------------------------------------------------
+OPENSSL_ALG  := rsa
+OPENSSL_BITS := 2048
+OPENSSL_OPTS := req -x509 -subj '/CN=localhost' -nodes -newkey
+
+kiwibes-cert:
+	@echo '================================================================'
+	@echo ' Generating the server private key and self-signed certificate  '
+	@echo '================================================================'
+	-openssl $(OPENSSL_OPTS) $(OPENSSL_ALG):$(OPENSSL_BITS) -keyout $(BUILD)/kiwibes.key -out $(BUILD)/kiwibes.cert -days 365
+	-openssl $(OPENSSL_ALG) -pubout -in $(BUILD)/kiwibes.key -out $(BUILD)/kiwibes.pub_key
 
 .PHONY: clean
 

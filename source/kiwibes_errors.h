@@ -49,6 +49,7 @@ typedef enum{
   ERROR_DATA_KEY_UNKNOWN,                 /* the name of the data does not exist */
   ERROR_DATA_STORE_FULL,                  /* no more space in the data store */ 
   ERROR_AUTHENTICATION_FAIL,              /* failed the authentication verification */
+  ERROR_HTTPS_CERTS_FAIL,                 /* failed to load the server certificate or private key */
 } T_KIWIBES_ERROR;
 
 #endif
