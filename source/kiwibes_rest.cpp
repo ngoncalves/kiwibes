@@ -45,70 +45,63 @@ static KiwibesAuthentication *pAuthentication;
   @param req  the incoming HTTP request
   @param res  the outgoing HTTP response
  */
-static void post_start_job(const httplib::Request& req, httplib::Response& res);
+static void rest_post_start_job(const httplib::Request& req, httplib::Response& res);
 
 /** REST: Stop job
 
   @param req  the incoming HTTP request
   @param res  the outgoing HTTP response
  */
-static void post_stop_job(const httplib::Request& req, httplib::Response& res);
+static void rest_post_stop_job(const httplib::Request& req, httplib::Response& res);
 
 /** REST: Create job
 
   @param req  the incoming HTTP request
   @param res  the outgoing HTTP response
  */
-static void post_create_job(const httplib::Request& req, httplib::Response& res);
+static void rest_post_create_job(const httplib::Request& req, httplib::Response& res);
 
 /** REST: Edit job description
 
   @param req  the incoming HTTP request
   @param res  the outgoing HTTP response
  */
-static void post_edit_job(const httplib::Request& req, httplib::Response& res);
+static void rest_post_edit_job(const httplib::Request& req, httplib::Response& res);
 
 /** REST: Delete a job
 
   @param req  the incoming HTTP request
   @param res  the outgoing HTTP response
  */
-static void post_delete_job(const httplib::Request& req, httplib::Response& res);
+static void rest_post_delete_job(const httplib::Request& req, httplib::Response& res);
 
 /** REST: Clear all pending start requests for this job
 
   @param req  the incoming HTTP request
   @param res  the outgoing HTTP response
  */
-static void post_clear_pending_job(const httplib::Request& req, httplib::Response& res);
+static void rest_post_clear_pending_job(const httplib::Request& req, httplib::Response& res);
 
 /** REST: Get job description
 
   @param req  the incoming HTTP request
   @param res  the outgoing HTTP response
  */
-static void get_get_job(const httplib::Request& req, httplib::Response& res);
+static void rest_get_get_job(const httplib::Request& req, httplib::Response& res);
 
 /** REST: List the name of all jobs
 
   @param req  the incoming HTTP request
   @param res  the outgoing HTTP response
  */
-static void get_jobs_list(const httplib::Request& req, httplib::Response& res);
+static void rest_get_jobs_list(const httplib::Request& req, httplib::Response& res);
 
 /** REST: List the name of all jobs currently scheduled to run
 
   @param req  the incoming HTTP request
   @param res  the outgoing HTTP response
  */
-static void get_scheduled_jobs(const httplib::Request& req, httplib::Response& res);
-
-/** REST: Requests logger
-
-  @param req  the incoming HTTP request
-  @param res  the outgoing HTTP response
- */
-static void rest_logger(const httplib::Request& req, const httplib::Response& res);
+static void rest_get_scheduled_jobs(const httplib::Request& req, httplib::Response& res);
 
 /** Read the job parameters from the POST request
 
@@ -123,28 +116,28 @@ static bool read_job_parameters(nlohmann::json &params, const httplib::Request &
   @param req  the incoming HTTP request
   @param res  the outgoing HTTP response
  */
-static void post_write_data(const httplib::Request& req, httplib::Response& res);
+static void rest_post_write_data(const httplib::Request& req, httplib::Response& res);
 
 /** REST: Clear a piece of data
 
   @param req  the incoming HTTP request
   @param res  the outgoing HTTP response
  */
-static void post_clear_data(const httplib::Request& req, httplib::Response& res);
+static void rest_post_clear_data(const httplib::Request& req, httplib::Response& res);
 
 /** REST: Clear all stored data
 
   @param req  the incoming HTTP request
   @param res  the outgoing HTTP response
  */
-static void post_clear_all_data(const httplib::Request& req, httplib::Response& res);
+static void rest_post_clear_all_data(const httplib::Request& req, httplib::Response& res);
 
 /** REST: Get data
 
   @param req  the incoming HTTP request
   @param res  the outgoing HTTP response
  */
-static void get_read_data(const httplib::Request& req, httplib::Response& res);
+static void rest_get_read_data(const httplib::Request& req, httplib::Response& res);
 
 /** Set the return error code
  */
@@ -166,28 +159,25 @@ void setup_rest_interface(httplib::SSLServer *https,
   pAuthentication = authentication;
 
   /* setup the HTTP REST route handlers */
-  https->Post("/rest/job/start/([a-zA-Z_0-9]+)",post_start_job);
-  https->Post("/rest/job/stop/([a-zA-Z_0-9]+)",post_stop_job);
-  https->Post("/rest/job/create/([a-zA-Z_0-9]+)",post_create_job);    
-  https->Post("/rest/job/edit/([a-zA-Z_0-9]+)",post_edit_job);    
-  https->Post("/rest/job/delete/([a-zA-Z_0-9]+)",post_delete_job);    
-  https->Post("/rest/job/clear_pending/([a-zA-Z_0-9]+)",post_clear_pending_job);    
-  https->Get( "/rest/job/details/([a-zA-Z_0-9]+)",get_get_job);
+  https->Post("/rest/job/start/([a-zA-Z_0-9]+)",rest_post_start_job);
+  https->Post("/rest/job/stop/([a-zA-Z_0-9]+)",rest_post_stop_job);
+  https->Post("/rest/job/create/([a-zA-Z_0-9]+)",rest_post_create_job);    
+  https->Post("/rest/job/edit/([a-zA-Z_0-9]+)",rest_post_edit_job);    
+  https->Post("/rest/job/delete/([a-zA-Z_0-9]+)",rest_post_delete_job);    
+  https->Post("/rest/job/clear_pending/([a-zA-Z_0-9]+)",rest_post_clear_pending_job);    
+  https->Get( "/rest/job/details/([a-zA-Z_0-9]+)",rest_get_get_job);
 
-  https->Post("/rest/data/write/([a-zA-Z_0-9]+)",post_write_data);    
-  https->Post("/rest/data/clear/([a-zA-Z_0-9]+)",post_clear_data);    
-  https->Post("/rest/data/clear_all",post_clear_all_data);    
-  https->Get( "/rest/data/read/([a-zA-Z_0-9]+)",get_read_data);    
+  https->Post("/rest/data/write/([a-zA-Z_0-9]+)",rest_post_write_data);    
+  https->Post("/rest/data/clear/([a-zA-Z_0-9]+)",rest_post_clear_data);    
+  https->Post("/rest/data/clear_all",rest_post_clear_all_data);    
+  https->Get( "/rest/data/read/([a-zA-Z_0-9]+)",rest_get_read_data);    
   
-  https->Get("/rest/jobs/list",get_jobs_list);
-  https->Get("/rest/jobs/scheduled",get_scheduled_jobs);
-      
-  /* setup the logger */
-  https->set_logger(rest_logger);
+  https->Get("/rest/jobs/list",rest_get_jobs_list);
+  https->Get("/rest/jobs/scheduled",rest_get_scheduled_jobs);
 }
 
 /*--------------------------Private Function Definitions -------------------------------*/
-static void post_start_job(const httplib::Request& req, httplib::Response& res)
+static void rest_post_start_job(const httplib::Request& req, httplib::Response& res)
 {
   T_KIWIBES_ERROR error = ERROR_NO_ERROR;
 
@@ -205,7 +195,7 @@ static void post_start_job(const httplib::Request& req, httplib::Response& res)
   set_return_code(res,error); 
 }
 
-static void post_stop_job(const httplib::Request& req, httplib::Response& res)
+static void rest_post_stop_job(const httplib::Request& req, httplib::Response& res)
 {
   T_KIWIBES_ERROR error = ERROR_NO_ERROR;
 
@@ -223,7 +213,7 @@ static void post_stop_job(const httplib::Request& req, httplib::Response& res)
   set_return_code(res,error); 
 }
 
-static void post_create_job(const httplib::Request& req, httplib::Response& res)
+static void rest_post_create_job(const httplib::Request& req, httplib::Response& res)
 {
   T_KIWIBES_ERROR error = ERROR_NO_ERROR;
   nlohmann::json  params;
@@ -269,7 +259,7 @@ static void post_create_job(const httplib::Request& req, httplib::Response& res)
   set_return_code(res,error);
 }
 
-static void post_edit_job(const httplib::Request& req, httplib::Response& res)
+static void rest_post_edit_job(const httplib::Request& req, httplib::Response& res)
 {
   T_KIWIBES_ERROR error = ERROR_NO_ERROR;
   nlohmann::json  params; 
@@ -319,7 +309,7 @@ static void post_edit_job(const httplib::Request& req, httplib::Response& res)
   set_return_code(res,error); 
 }
 
-static void post_delete_job(const httplib::Request& req, httplib::Response& res)
+static void rest_post_delete_job(const httplib::Request& req, httplib::Response& res)
 {
   T_KIWIBES_ERROR error = ERROR_NO_ERROR;
 
@@ -343,7 +333,7 @@ static void post_delete_job(const httplib::Request& req, httplib::Response& res)
   set_return_code(res,error);    
 }
 
-static void post_clear_pending_job(const httplib::Request& req, httplib::Response& res)
+static void rest_post_clear_pending_job(const httplib::Request& req, httplib::Response& res)
 {
   T_KIWIBES_ERROR error = ERROR_NO_ERROR;
 
@@ -361,7 +351,7 @@ static void post_clear_pending_job(const httplib::Request& req, httplib::Respons
   set_return_code(res,error); 
 }
 
-static void get_get_job(const httplib::Request& req, httplib::Response& res)
+static void rest_get_get_job(const httplib::Request& req, httplib::Response& res)
 {
   if((true != req.has_param("auth")) ||
      (true != pAuthentication->verify_auth_token(req.get_param_value("auth")))
@@ -384,7 +374,7 @@ static void get_get_job(const httplib::Request& req, httplib::Response& res)
   }
 }
 
-static void get_jobs_list(const httplib::Request& req, httplib::Response& res)
+static void rest_get_jobs_list(const httplib::Request& req, httplib::Response& res)
 {
   std::vector<std::string> jobs;
 
@@ -395,7 +385,7 @@ static void get_jobs_list(const httplib::Request& req, httplib::Response& res)
   res.set_content(names.dump(),"application/json");    
 }
 
-static void get_scheduled_jobs(const httplib::Request& req, httplib::Response& res)
+static void rest_get_scheduled_jobs(const httplib::Request& req, httplib::Response& res)
 {
   std::vector<std::string> jobs;
 
@@ -406,7 +396,7 @@ static void get_scheduled_jobs(const httplib::Request& req, httplib::Response& r
   res.set_content(names.dump(),"application/json");    
 }
 
-static void post_write_data(const httplib::Request& req, httplib::Response& res)
+static void rest_post_write_data(const httplib::Request& req, httplib::Response& res)
 {
   T_KIWIBES_ERROR error = ERROR_NO_ERROR;
 
@@ -431,7 +421,7 @@ static void post_write_data(const httplib::Request& req, httplib::Response& res)
   set_return_code(res,error);  
 }
 
-static void post_clear_data(const httplib::Request& req, httplib::Response& res)
+static void rest_post_clear_data(const httplib::Request& req, httplib::Response& res)
 {
   T_KIWIBES_ERROR error = ERROR_NO_ERROR;
 
@@ -449,7 +439,7 @@ static void post_clear_data(const httplib::Request& req, httplib::Response& res)
   set_return_code(res,error);  
 }
 
-static void post_clear_all_data(const httplib::Request& req, httplib::Response& res)
+static void rest_post_clear_all_data(const httplib::Request& req, httplib::Response& res)
 {
   T_KIWIBES_ERROR error = ERROR_NO_ERROR;
 
@@ -470,7 +460,7 @@ static void post_clear_all_data(const httplib::Request& req, httplib::Response& 
   set_return_code(res,error);  
 }
 
-static void get_read_data(const httplib::Request& req, httplib::Response& res)
+static void rest_get_read_data(const httplib::Request& req, httplib::Response& res)
 {
   T_KIWIBES_ERROR error = ERROR_NO_ERROR;
 
@@ -496,18 +486,6 @@ static void get_read_data(const httplib::Request& req, httplib::Response& res)
   }
   
   set_return_code(res,error); 
-}
-
-static void rest_logger(const httplib::Request& req, const httplib::Response& res)
-{
-  std::string params("");
-
-  for(auto it = req.params.begin(); it != req.params.end(); ++it)
-  {
-    params += (it == req.params.begin() ? '?' : '&') + (*it).first + (*it).second;
-  }
-
-  LOG_INFO << req.method.c_str() << " - " << req.path.c_str() << params ; 
 }
 
 static bool read_job_parameters(nlohmann::json &params, const httplib::Request &req)
@@ -619,12 +597,10 @@ static void set_return_code(httplib::Response& res, T_KIWIBES_ERROR error)
       description["message"] = "Job is running";
       break;
       
-#if defined(_KIWIBES_AUTHENTICATION_)
     case ERROR_AUTHENTICATION_FAIL:
       res.status = 403;   /* Not allowed */
       description["message"] = "Authentication failed";
       break;
-#endif 
       
     default:
       res.status = 500;   /* Generic server error */

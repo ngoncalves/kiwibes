@@ -59,7 +59,7 @@ void test_jobs_manager_start_job(void)
   ASSERT(ERROR_JOB_NAME_UNKNOWN == manager.start_job("my job"));  
 
   /* start a job which takes two seconds */
-  std::time_t    now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+  std::time_t    now = std::time_t(nullptr);
   nlohmann::json job; 
 
   ASSERT(ERROR_NO_ERROR == manager.start_job("sleep_2"));

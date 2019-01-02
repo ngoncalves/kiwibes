@@ -35,7 +35,7 @@ LIBS   := -pthread $(shell pkg-config --libs openssl) -dl
 #----------------------------------------------------------------------------
 CC      := g++ 
 OPTIONS := -DCPPHTTPLIB_OPENSSL_SUPPORT -DCRON_USE_LOCAL_TIME
-CFLAGS  := -std=c++11 -Wall -Werror -O2 $(OPTIONS) $(shell pkg-config --cflags openssl) -I $(INCS) 
+CFLAGS  := -std=c++17 -Wall -Werror -O2 $(OPTIONS) $(shell pkg-config --cflags openssl) -I $(INCS) 
 
 BIN     := $(BUILD)/kiwibes
 SOURCES := $(wildcard $(SOURCE)/*.cpp)

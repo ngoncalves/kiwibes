@@ -22,34 +22,37 @@
   Summary
   -------
   
-  This class implements the REST interface.
+  This class implements the Web interface.
 */
-#ifndef __KIWIBES_REST_H__
-#define __KIWIBES_REST_H__
+#ifndef __KIWIBES_WEB_H__
+#define __KIWIBES_WEB_H__
 
 #include "kiwibes_database.h"
-#include "kiwibes_data_store.h"
 #include "kiwibes_jobs_manager.h"
-#include "kiwibes_scheduler.h"
 #include "kiwibes_authentication.h"
 
 #include "cpp-httplib/httplib.h"
 
+#include <string>
+
 /*-------------------------- Public Function Declarations -------------------------------*/
 
-/** Setup the REST HTTP route handlers
+/** Setup the HTML page route handlers
  
   @param https          pointer to the HTTPS server
   @param manager        pointer to the Kiwibes jobs manager
-  @param scheduler      pointer to the Kiwibes jobs scheduler
   @param database       pointer to the Kiwibes database interface 
-  @param store          pointer to the Kiwibes data store interface 
   @param authentication pointer to the Kiwibes authentication
+  @param templates      path to the Web templates folder
 */
-void setup_rest_interface(httplib::SSLServer *https,
-                          KiwibesJobsManager *manager,
-                          KiwibesScheduler *scheduler,
-                          KiwibesDatabase *database,
-                          KiwibesDataStore *store,
-                          KiwibesAuthentication *authentication);
+void setup_web_interface(httplib::SSLServer *https,
+                         KiwibesJobsManager *manager,
+                         KiwibesDatabase *database,
+                         KiwibesAuthentication *authentication,
+                         std::string &templates);
+
+/** Cleanup private data
+ */
+void cleanup_web_interface(void);
+
 #endif

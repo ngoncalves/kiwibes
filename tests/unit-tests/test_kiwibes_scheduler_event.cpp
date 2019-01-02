@@ -29,7 +29,7 @@
 /*----------------------- Public Functions Definitions ------------*/
 void test_scheduler_event_order(void)
 {
-  std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+  std::time_t now = std::time_t(nullptr);
 
   KiwibesSchedulerEvent first(EVENT_START_JOB,now,std::string("first"));
   KiwibesSchedulerEvent second(EVENT_START_JOB,now + 1,std::string("second"));

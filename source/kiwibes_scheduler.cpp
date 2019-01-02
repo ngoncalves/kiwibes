@@ -37,15 +37,25 @@
   the execution of scheduled jobs. The function will run in a non-stop
   loop until the exit event is received
 
-  @param scheduler  pointer to the scheduler
+  @param database   pointer to the database
   @param manager    pointer to the jobs manager
   @param qlock      the events queue lock   
   @param events     events queue
  */
-static void scheduler_thread(KiwibesScheduler   *scheduler,
+static void scheduler_thread(KiwibesDatabase    *database,
                              KiwibesJobsManager *manager,
                              std::mutex         *qlock,
                              std::priority_queue<KiwibesSchedulerEvent *> *events);
+
+/** Unsafe job schedule
+
+  Schedule a job without locking the events queue.
+
+  @param name       name of the job to schedule
+  @param database   pointer to the database
+  @param events     events queue
+ */
+static T_KIWIBES_ERROR unsafe_job_schedule(const std::string &name, KiwibesDatabase *database, std::priority_queue<KiwibesSchedulerEvent *> events);
 
 /*--------------------- Modified Piority Queue -------------------------------*/
 /** Returns the underlying container of the priority queue
@@ -88,7 +98,7 @@ KiwibesScheduler::~KiwibesScheduler()
 void KiwibesScheduler::start(void)
 {
   LOG_INFO << "starting the scheduler thread";
-  scheduler.reset(new std::thread(scheduler_thread,this,manager,&qlock,&events));
+  scheduler.reset(new std::thread(scheduler_thread,database,manager,&qlock,&events));
   is_running = true;
 }
 
@@ -99,8 +109,10 @@ void KiwibesScheduler::stop(void)
     /* push the exit event to the queue, then wait for the thread to stop */
     {
       std::lock_guard<std::mutex> lock(qlock);
-    
-      std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+
+      LOG_INFO << "asking the scheduler thread to finish";
+
+      std::time_t now = std::time_t(nullptr);
       
       events.push(new KiwibesSchedulerEvent(EVENT_EXIT_SCHEDULER,now,std::string("")));
     }
@@ -118,33 +130,9 @@ void KiwibesScheduler::stop(void)
 
 T_KIWIBES_ERROR KiwibesScheduler::schedule_job(const std::string &name)
 {
-  nlohmann::json  job;
-  T_KIWIBES_ERROR error = database->get_job_description(job,name);
-
-  if(ERROR_NO_ERROR != error)
-  {
-    LOG_CRIT << "cannot find a job with name '" << name << "'";
-  } 
-  else
-  {
-    KiwibesCron cron(job["schedule"].get<std::string>());
-
-    if(false == cron.is_valid())
-    {
-      LOG_CRIT << "job '" << name << "' has an invalid schedule";
-      error = ERROR_JOB_SCHEDULE_INVALID;
-    }
-    else
-    {
-      std::lock_guard<std::mutex> lock(qlock);
-
-      events.push(new KiwibesSchedulerEvent(EVENT_START_JOB,cron.next(),name));
-
-      LOG_INFO << "scheduled job '" << name << "'";      
-    }
-  }
-
-  return error; 
+  std::lock_guard<std::mutex> lock(qlock);
+  
+  return unsafe_job_schedule(name,database,events);
 }
 
 void KiwibesScheduler::unschedule_job(const std::string &name)
@@ -186,7 +174,7 @@ void KiwibesScheduler::get_all_scheduled_job_names(std::vector<std::string> &job
   }
 }
 /*--------------------- Private Functions Definitions ------------------------------*/
-static void scheduler_thread(KiwibesScheduler *scheduler, KiwibesJobsManager *manager,std::mutex *qlock,std::priority_queue<KiwibesSchedulerEvent *> *events)
+static void scheduler_thread(KiwibesDatabase *database, KiwibesJobsManager *manager,std::mutex *qlock,std::priority_queue<KiwibesSchedulerEvent *> *events)
 {
   /* run in an infinite loop until the exit event is received */
   bool exit_event_received = false;
@@ -194,7 +182,7 @@ static void scheduler_thread(KiwibesScheduler *scheduler, KiwibesJobsManager *ma
   while(false == exit_event_received)
   {
     /* verify if the first waiting event has occurred */
-    std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    std::time_t now = std::time_t(nullptr);
 
     qlock->lock();
 
@@ -208,7 +196,9 @@ static void scheduler_thread(KiwibesScheduler *scheduler, KiwibesJobsManager *ma
           /* start the job, then re-schedule it again */
           {
             manager->start_job(*(event->job_name));
-            scheduler->schedule_job(*(event->job_name));
+            /* snooze a little so the job is not scheduled immediately again */
+            std::this_thread::sleep_for(std::chrono::milliseconds(1100));
+            unsafe_job_schedule(*(event->job_name),database,*events);
           }
           break;
 
@@ -218,6 +208,7 @@ static void scheduler_thread(KiwibesScheduler *scheduler, KiwibesJobsManager *ma
           break;
 
         case EVENT_EXIT_SCHEDULER:
+          LOG_INFO << "scheduler asked to stop";
           exit_event_received = true;
           break;
 
@@ -235,4 +226,33 @@ static void scheduler_thread(KiwibesScheduler *scheduler, KiwibesJobsManager *ma
     /* snooze a little to give the main thread a change at inserting events in the queue */
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
+}
+
+static T_KIWIBES_ERROR unsafe_job_schedule(const std::string &name, KiwibesDatabase *database, std::priority_queue<KiwibesSchedulerEvent *> events)
+{
+  nlohmann::json  job;
+  T_KIWIBES_ERROR error = database->get_job_description(job,name);
+
+  if(ERROR_NO_ERROR != error)
+  {
+    LOG_CRIT << "cannot find a job with name '" << name << "'";
+  } 
+  else
+  {
+    KiwibesCron cron(job["schedule"].get<std::string>());
+
+    if(false == cron.is_valid())
+    {
+      LOG_CRIT << "job '" << name << "' has an invalid schedule";
+      error = ERROR_JOB_SCHEDULE_INVALID;
+    }
+    else
+    {
+      events.push(new KiwibesSchedulerEvent(EVENT_START_JOB,cron.next(),name));
+
+      LOG_INFO << "scheduled job '" << name << "'";      
+    }
+  }
+
+  return error; 
 }

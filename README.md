@@ -215,7 +215,6 @@ There are three sets of tests:
 
  - unit tests, written in C++
  - validation tests, written in Python
- - stress tests, also written in Python
 
 All types of tests are targets of the Makefile provided. The Python tests require
 Python and the modules requests and pytest. The stress tests also need valgrind, which

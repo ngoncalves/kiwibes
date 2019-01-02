@@ -34,6 +34,7 @@
 #include "kiwibes_errors.h"
 #include "kiwibes_cmd_line.h"
 #include "kiwibes_rest.h"
+#include "kiwibes_web.h"
 #include "kiwibes_authentication.h"
 
 #include "cpp-httplib/httplib.h"
@@ -91,6 +92,13 @@ static void start_logging(T_CMD_LINE_OPTIONS &options);
   @returns ERROR_NO_ERROR if successfull, error code otherwise
 */
 static T_KIWIBES_ERROR initialize_kiwibes(T_CMD_LINE_OPTIONS &options);
+
+/** Log HTTPS requests
+
+  @param req  incoming request
+  @param res  outgoing response
+ */
+static void https_logger(const httplib::Request& req, const httplib::Response& res);
 
 /*--------------------------Public Function Definitions -------------------------------*/
 int main(int argc, char **argv)
@@ -156,6 +164,8 @@ static void cleanup(void)
     https->stop();
     delete https; 
   }
+
+  cleanup_web_interface();
 
   if(nullptr != jobs_scheduler)
   {
@@ -225,6 +235,7 @@ static T_KIWIBES_ERROR initialize_kiwibes(T_CMD_LINE_OPTIONS &options)
   std::string     authentication_file = *(options.home) + std::string("kiwibes.auth");
   std::string     server_certificate  = *(options.home) + std::string("kiwibes.cert");
   std::string     server_priv_key     = *(options.home) + std::string("kiwibes.key");
+  std::string     web_templates       = *(options.home) + std::string("/templates/");
 
   std::cout << "[INFO] loading the Kiwibes jobs database from: " << jobs_db_file << std::endl;
   LOG_INFO << "loading the Kiwibes jobs database from: " << jobs_db_file;
@@ -258,6 +269,11 @@ static T_KIWIBES_ERROR initialize_kiwibes(T_CMD_LINE_OPTIONS &options)
       LOG_INFO  << "loaded the HTTPS server private key: " << server_priv_key;
       std::cout << "[INFO] loaded the HTTPS server certificate: " << server_certificate << std::endl;      
       std::cout << "[INFO] loaded the HTTPS server private key: " << server_priv_key << std::endl;      
+
+      /* setup the requests logger and both REST and Web interfaces */
+      https->set_logger(https_logger);
+      setup_rest_interface(https,jobs_manager,jobs_scheduler,database,data_store,authentication);
+      setup_web_interface(https,jobs_manager,database,authentication,web_templates);
     }
   }
 
@@ -277,13 +293,22 @@ static T_KIWIBES_ERROR initialize_kiwibes(T_CMD_LINE_OPTIONS &options)
       jobs_scheduler->schedule_job(name);  
     }
   
-    /* setup the REST interface */
-    setup_rest_interface(https,jobs_manager,jobs_scheduler,database,data_store,authentication);
-
     /* initialization is complete */
     std::cout << "[INFO] the Kiwibes server is initialized" << std::endl;
     LOG_INFO << "the Kiwibes server is initialized";
   }
 
   return error;
+}
+
+static void https_logger(const httplib::Request& req, const httplib::Response& res)
+{
+  std::string params("");
+
+  for(auto it = req.params.begin(); it != req.params.end(); ++it)
+  {
+    params += (it == req.params.begin() ? '?' : '&') + (*it).first + (*it).second;
+  }
+
+  LOG_INFO << req.method.c_str() << " - " << req.path.c_str() << params ; 
 }

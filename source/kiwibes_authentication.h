@@ -34,6 +34,8 @@
 #include <mutex>
 #include <thread>
 #include <memory>
+#include <chrono>
+#include <map>
 
 class KiwibesAuthentication {
 
@@ -55,12 +57,26 @@ public:
    */
   bool verify_auth_token(const std::string &token);
 
+
+  /** Verify the authentication cookie is valid
+
+    A cookie is valid if it corresponds to a valid authentication
+    token AND either:
+      - it is seen for the first time
+      - it was seen in the last 15 minutes 
+
+    @param cookie  the string containing the authentication token
+    @returns true if the token is valid, false otherwise
+  */
+  bool verify_web_cookie(const std::string &cookie);
+
 private:
-  std::string                  *auth_fname; /* full path to the file with the authentication tokens */
-  std::set<std::string>        tokens;      /* mapping of entities to tokens */
-  std::mutex                   tlock;       /* exclusive tokens map */
-  std::unique_ptr<std::thread> watcher;     /* thread that loads changes in the tokens file */
-  bool                         watcherExit; /* flag to indicate when the watcher thread should exit */
+  std::map<std::string,std::time_t> cookie_jar; /* contains the web cookies */   
+  std::string                  *auth_fname;     /* full path to the file with the authentication tokens */
+  std::set<std::string>        tokens;          /* mapping of entities to tokens */
+  std::mutex                   tlock;           /* exclusive tokens map */
+  std::unique_ptr<std::thread> watcher;         /* thread that loads changes in the tokens file */
+  bool                         watcherExit;     /* flag to indicate when the watcher thread should exit */
 };  
 
 #endif

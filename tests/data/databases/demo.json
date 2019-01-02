@@ -1,0 +1,49 @@
+{
+	"sleep_2" : {
+		"program"     	: [ "/bin/sleep", "2" ],
+		"max-runtime" 	: 4,
+		"avg-runtime" 	: 0.0,
+		"var-runtime" 	: 0.0,
+		"schedule"    	: "",
+		"status"        : "stopped",
+		"pending-start" : 0,
+		"start-time"  	: 0,
+		"nbr-runs"    	: 0				
+	},
+
+	"sleep_20" : {
+		"program"     	: [ "/bin/sleep", "20" ],
+		"max-runtime" 	: 22,
+		"avg-runtime" 	: 0.0,
+		"var-runtime" 	: 0.0,
+		"schedule"    	: "",
+		"status"      	: "stopped",
+		"pending-start" : 0,
+		"start-time"  	: 0,
+		"nbr-runs"    	: 0				
+	},
+
+	"hello_world" : {
+		"program"     	: [ "/bin/bash", "-c", "sleep 2 && echo 'hello world !' >> ./hello_world.txt"],
+		"max-runtime" 	: 3,
+		"avg-runtime" 	: 0.0,
+		"var-runtime" 	: 0.0,
+		"schedule"    	: "",
+		"status"      	: "stopped",
+		"pending-start" : 0,
+		"start-time"  	: 0,
+		"nbr-runs"    	: 0				
+	},
+
+	"sleep_10" : {
+		"program"     	: [ "/bin/sleep", "10" ],
+		"max-runtime" 	: 22,
+		"avg-runtime" 	: 0.0,
+		"var-runtime" 	: 0.0,
+		"schedule"    	: "5 * * 4 * *",
+		"status"      	: "stopped",
+		"pending-start" : 0,
+		"start-time"  	: 0,
+		"nbr-runs"    	: 0				
+	}
+}

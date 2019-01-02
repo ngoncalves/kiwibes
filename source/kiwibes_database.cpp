@@ -151,7 +151,7 @@ T_KIWIBES_ERROR KiwibesDatabase::job_started(const std::string &name)
     LOG_INFO << "has started, job '" << name << "'";
 
     (*dbjobs)[name]["status"]     = "running";
-    (*dbjobs)[name]["start-time"] = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    (*dbjobs)[name]["start-time"] = std::time_t(nullptr);
   }
 
   return error; 
@@ -176,7 +176,7 @@ T_KIWIBES_ERROR KiwibesDatabase::job_stopped(const std::string &name)
   else  
   {
     LOG_INFO << "has stopped, job '" << name << "'";
-    std::time_t       now     = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    std::time_t       now     = std::time_t(nullptr);
     std::time_t       runtime = now - (*dbjobs)[name]["start-time"].get<std::time_t>();
     unsigned long int runs    = (*dbjobs)[name]["nbr-runs"].get<unsigned long int>() + 1;
     double            avg     = (*dbjobs)[name]["avg-runtime"].get<double>();

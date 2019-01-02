@@ -89,6 +89,34 @@ bool KiwibesAuthentication::verify_auth_token(const std::string &token)
   return (tokens.end() != tokens.find(token));
 }
 
+bool KiwibesAuthentication::verify_web_cookie(const std::string &cookie)
+{
+  std::lock_guard<std::mutex> lock(tlock);
+  bool is_valid = false; 
+
+  if(tokens.end() == tokens.find(cookie))
+  {
+    /* cookie is a valid authentication token, check its expiration date */
+    std::time_t now = std::time(nullptr);
+    std::map<std::string,std::time_t>::iterator iter = cookie_jar.find(cookie);
+
+    if(cookie_jar.end() == iter)
+    {
+      /* first time it is seen, set its expiration time */
+      cookie_jar.insert(std::pair<std::string,std::time_t>(cookie,now));
+      is_valid = true;
+    }
+    else if(std::difftime(now,iter->second) < 15*60)
+    {
+      /* reset the cookie expiration time */
+      iter->second = now; 
+      is_valid = true;
+    }
+  }
+
+  return is_valid;
+}
+
 /*----------------- Private Functions Definitions -----------------------------*/
 static void watcher_thread(const std::string *fname, std::set<std::string> *tokens, std::mutex *tlock, bool *exitFlag)
 {
