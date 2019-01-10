@@ -34,7 +34,6 @@
 #include "kiwibes_errors.h"
 #include "kiwibes_cmd_line.h"
 #include "kiwibes_rest.h"
-#include "kiwibes_web.h"
 #include "kiwibes_authentication.h"
 
 #include "cpp-httplib/httplib.h"
@@ -100,6 +99,13 @@ static T_KIWIBES_ERROR initialize_kiwibes(T_CMD_LINE_OPTIONS &options);
  */
 static void https_logger(const httplib::Request& req, const httplib::Response& res);
 
+/** No HTTP route handler 
+  
+  @param req incoming request
+  @param res outgoing response
+ */
+static void https_error(const httplib::Request &req, httplib::Response &res);
+
 /*--------------------------Public Function Definitions -------------------------------*/
 int main(int argc, char **argv)
 {
@@ -148,6 +154,7 @@ int main(int argc, char **argv)
   {
     /* run the HTTPS server */
     std::cout << "Listening on the HTTPS port " << options.https_port << std::endl;
+    std::cout << "Press CTL-C to exit" << std::endl;
     LOG_INFO << "Listening on the HTTPS port " << options.https_port;
     
     https->listen("localhost",options.https_port);
@@ -164,8 +171,6 @@ static void cleanup(void)
     https->stop();
     delete https; 
   }
-
-  cleanup_web_interface();
 
   if(nullptr != jobs_scheduler)
   {
@@ -235,7 +240,6 @@ static T_KIWIBES_ERROR initialize_kiwibes(T_CMD_LINE_OPTIONS &options)
   std::string     authentication_file = *(options.home) + std::string("kiwibes.auth");
   std::string     server_certificate  = *(options.home) + std::string("kiwibes.cert");
   std::string     server_priv_key     = *(options.home) + std::string("kiwibes.key");
-  std::string     web_templates       = *(options.home) + std::string("/templates/");
 
   std::cout << "[INFO] loading the Kiwibes jobs database from: " << jobs_db_file << std::endl;
   LOG_INFO << "loading the Kiwibes jobs database from: " << jobs_db_file;
@@ -273,7 +277,7 @@ static T_KIWIBES_ERROR initialize_kiwibes(T_CMD_LINE_OPTIONS &options)
       /* setup the requests logger and both REST and Web interfaces */
       https->set_logger(https_logger);
       setup_rest_interface(https,jobs_manager,jobs_scheduler,database,data_store,authentication);
-      setup_web_interface(https,jobs_manager,database,authentication,web_templates);
+      https->set_error_handler(https_error);
     }
   }
 
@@ -303,12 +307,20 @@ static T_KIWIBES_ERROR initialize_kiwibes(T_CMD_LINE_OPTIONS &options)
 
 static void https_logger(const httplib::Request& req, const httplib::Response& res)
 {
-  std::string params("");
+  std::string req_params("");
 
   for(auto it = req.params.begin(); it != req.params.end(); ++it)
   {
-    params += (it == req.params.begin() ? '?' : '&') + (*it).first + (*it).second;
+    req_params += (it == req.params.begin() ? '?' : '&') + (*it).first + std::string("=") + (*it).second;
   }
 
-  LOG_INFO << req.method.c_str() << " - " << req.path.c_str() << params ; 
+  LOG_INFO << "HTTP request " << req.method << ":" << req.path << req_params; 
+
+  LOG_INFO << "HTTP response status: " << res.status;
+}
+
+static void https_error(const httplib::Request &req, httplib::Response &res)
+{
+  res.status = 404;
+  res.set_content("I am sorry Dave, but I can't do that.","text/plain");
 }

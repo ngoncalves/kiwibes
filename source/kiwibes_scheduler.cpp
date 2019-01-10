@@ -112,7 +112,7 @@ void KiwibesScheduler::stop(void)
 
       LOG_INFO << "asking the scheduler thread to finish";
 
-      std::time_t now = std::time_t(nullptr);
+      std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
       
       events.push(new KiwibesSchedulerEvent(EVENT_EXIT_SCHEDULER,now,std::string("")));
     }
@@ -182,7 +182,7 @@ static void scheduler_thread(KiwibesDatabase *database, KiwibesJobsManager *mana
   while(false == exit_event_received)
   {
     /* verify if the first waiting event has occurred */
-    std::time_t now = std::time_t(nullptr);
+    std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 
     qlock->lock();
 

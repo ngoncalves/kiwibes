@@ -224,7 +224,7 @@ void test_database_job_started(void)
   ASSERT(0                      == job["pending-start"].get<signed int>());
   ASSERT(0                      == job["start-time"].get<std::time_t>());   
 
-  std::time_t now = std::time_t(nullptr);
+  std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 
   ASSERT(ERROR_NO_ERROR == database.job_started("job_1"));
 

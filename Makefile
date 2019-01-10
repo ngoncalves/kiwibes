@@ -45,7 +45,6 @@ help:
 	@echo '  ut-kiwibes   	: build and run the unit tests for Kiwibes'
 	@echo '  vld-kiwibes	: run the validation tests for Kiwibes'
 	@echo '  kiwibes-cert	: create the server private key and self-signed certificate'
-	@echo '  kiwibes-web	: copy the HTML templates to the build directory'
 	@echo '  kiwibes-demo	: setup and run a demo instance of Kiwibes'
 	@echo '  clean        	: clear the build directory'
 	@echo '  help         	: this text'
@@ -76,22 +75,15 @@ kiwibes-cert:
 	-openssl $(OPENSSL_OPTS) $(OPENSSL_ALG):$(OPENSSL_BITS) -keyout $(BUILD)/kiwibes.key -out $(BUILD)/kiwibes.cert -days 365
 	-openssl $(OPENSSL_ALG) -pubout -in $(BUILD)/kiwibes.key -out $(BUILD)/kiwibes.pub_key
 
-kiwibes-web:
-	@echo '============================================'
-	@echo ' Copying HTML templates to build directory  '
-	@echo '============================================'
-	-rm -rf $(BUILD)/templates
-	-mkdir -p $(BUILD)/templates
-	-cp web/* $(BUILD)/templates 
-
-kiwibes-demo: kiwibes kiwibes-web kiwibes-cert
+kiwibes-demo: kiwibes kiwibes-cert
 	@echo '============================================'
 	@echo ' Starting a demo of Kiwibes                 '
 	@echo '============================================'
 	-cp $(TESTS)/data/databases/demo.json $(BUILD)/kiwibes.json
+	-cp $(TESTS)/data/auth_tokens/demo.auth $(BUILD)/kiwibes.auth
 	-$(BUILD)/kiwibes ./$(BUILD)/ -l 2
 
-.PHONY: clean
+.PHONY: clean ut-kiwibes
 
 clean:
 	@echo '============================================'
