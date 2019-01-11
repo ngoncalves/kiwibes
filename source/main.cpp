@@ -321,6 +321,9 @@ static void https_logger(const httplib::Request& req, const httplib::Response& r
 
 static void https_error(const httplib::Request &req, httplib::Response &res)
 {
-  res.status = 404;
-  res.set_content("I am sorry Dave, but I can't do that.","text/plain");
+  /* set a Page Not Found error only if there body in the response */
+  if((0 == res.body.size()) && (404 == res.status))
+  {
+    res.set_content("I am sorry Dave, but I can't do that.","text/plain");
+  }
 }

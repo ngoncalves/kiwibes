@@ -391,6 +391,11 @@ static void rest_get_scheduled_jobs(const httplib::Request& req, httplib::Respon
 
   pScheduler->get_all_scheduled_job_names(jobs);
   
+  for (auto job : jobs)
+  {
+    LOG_INFO << "scheduled: " << job;
+  }
+  
   nlohmann::json names(jobs); 
   res.status = 200;
   res.set_content(names.dump(),"application/json");    
@@ -537,76 +542,71 @@ static void set_return_code(httplib::Response& res, T_KIWIBES_ERROR error)
 {
   nlohmann::json description; 
 
-  description["code"]    = error;
+  description["error"]    = error;
   description["message"] = "";
 
   switch(error)
   {
     case ERROR_NO_ERROR: 
-      res.status = 200;
       break; 
 
     case ERROR_JOB_NAME_UNKNOWN:
-      res.status = 404;   /* Not found */
       description["message"] = "Job not found";
       break;
 
     case ERROR_DATA_KEY_UNKNOWN:
-      res.status = 404;   /* Not found */
       description["message"] = "Data key not found";
       break;
 
     case ERROR_DATA_STORE_FULL:
-      res.status = 507;   /* Not enough space */
       description["message"] = "Not enough space in the data storage";
       break;
 
     case ERROR_JOB_NAME_TAKEN:
-      res.status = 409;   /* Conflict */
       description["message"] = "Job name already exists";
       break;
 
     case ERROR_DATA_KEY_TAKEN:
-      res.status = 409;   /* Conflict */
       description["message"] = "Data key already exists";
       break;
 
     case ERROR_PROCESS_LAUNCH_FAILED:
-      res.status = 500;   /* Generic server error */
       description["message"] = "Failed to start job";  
       break;
 
     case ERROR_JOB_DESCRIPTION_INVALID:
     case ERROR_EMPTY_REST_REQUEST:
-      res.status = 400;   /* Bad request */
       description["message"] = "Bad request";
       break; 
 
     case ERROR_JOB_SCHEDULE_INVALID:
-      res.status = 400;   /* Bad request */
       description["message"] = "Invalid job schedule";
       break; 
 
     case ERROR_JOB_IS_NOT_RUNNING:
-      res.status = 403;   /* Not allowed */
       description["message"] = "Job is not running";
       break; 
 
     case ERROR_JOB_IS_RUNNING:
-      res.status = 403;   /* Not allowed */
       description["message"] = "Job is running";
       break;
       
     case ERROR_AUTHENTICATION_FAIL:
-      res.status = 403;   /* Not allowed */
       description["message"] = "Authentication failed";
       break;
       
     default:
-      res.status = 500;   /* Generic server error */
       description["message"] = "Generic server error";         
       break;      
   }
 
-  res.set_content(description.dump(),"application/json");
+  if(ERROR_NO_ERROR == error)
+  {
+    res.status = 200;
+  }
+  else 
+  {
+    res.status = 404;
+    res.set_content(description.dump(),"application/json");
+  }
 }

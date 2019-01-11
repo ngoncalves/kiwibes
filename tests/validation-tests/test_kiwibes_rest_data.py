@@ -37,6 +37,7 @@ def setup_cleanup():
 	# setup the home folder and launch the Kiwibes server
 	util.clean_home_folder()
 	util.copy_database('rest_test_db.json')
+	util.copy_auth_tokens('demo.auth')
 	kiwibes = util.launch_non_blocking([util.KIWIBES_HOME,'-l','2','-d','1'])
 
 	# run the test case
@@ -45,61 +46,95 @@ def setup_cleanup():
 	# cleanup and backup the db
 	kiwibes.terminate()
 
+def test_invalid_authentication():
+	"""
+	Attempt to use any of the REST calls without authentication 
+	will fail
+	"""
+	# calling without any authentication token -> fail
+	for call in ["read", "write", "clear", "clear_all"]:
+		if call == "read":
+			result = requests.get('https://127.0.0.1:4242/rest/data/%s/test' % call,verify=False)
+		elif call == "clear_all":
+			result = requests.post('https://127.0.0.1:4242/rest/data/%s' % call,verify=False)
+		else: 
+			result = requests.post('https://127.0.0.1:4242/rest/data/%s/test' % call,verify=False)
+
+		assert 404 == result.status_code
+		assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_AUTHENTICATION_FAIL']
+
+	# calling with an invalid authentication token -> fail
+	auth = { "auth" : "this-is-invalid !"}
+	for call in ["read", "write", "clear", "clear_all"]:
+		if call == "read":
+			result = requests.get('https://127.0.0.1:4242/rest/data/%s/test' % call,data=auth,verify=False)
+		elif call == "clear_all":
+			result = requests.post('https://127.0.0.1:4242/rest/data/%s' % call,data=auth,verify=False)
+		else: 
+			result = requests.post('https://127.0.0.1:4242/rest/data/%s/test' % call,data=auth,verify=False)
+		
+		assert 404 == result.status_code
+		assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_AUTHENTICATION_FAIL']
+
 def test_post_data_write(): 
 	"""
 	Attempt to write data to the data store
 	"""
 	# write a key-value pair
-	value = {"value" : "my test value"}	
-	result = requests.post('http://127.0.0.1:4242/rest/data/write/test',data=value)
+	value = {"value" : "my test value", "auth" : "validation-rest-calls"}	
+	result = requests.post('https://127.0.0.1:4242/rest/data/write/test',data=value,verify=False)
 	assert 200 == result.status_code
 
 	# cannot overwrite an existing key value
 	value["value"] = "another test value"
-	result = requests.post('http://127.0.0.1:4242/rest/data/write/test',data=value)
-	assert 409 == result.status_code
-	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_DATA_KEY_TAKEN']
+	result = requests.post('https://127.0.0.1:4242/rest/data/write/test',data=value,verify=False)
+	assert 404 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_DATA_KEY_TAKEN']
 
 def test_get_data_read(): 
 	"""
 	Attempt to read data from the data store
 	"""
 	# write a key-value pair
-	value = {"value" : "my test value"}	
-	result = requests.post('http://127.0.0.1:4242/rest/data/write/test',data=value)
+	value = {"value" : "my test value", "auth" : "validation-rest-calls"}
+	result = requests.post('https://127.0.0.1:4242/rest/data/write/test',data=value,verify=False)
 	assert 200 == result.status_code
 
 	# cannot read from a non-existing key
-	result = requests.get('http://127.0.0.1:4242/rest/data/read/does_not_exist')
+	token = {"auth" : "validation-rest-calls"}
+	result = requests.get('https://127.0.0.1:4242/rest/data/read/does_not_exist',params=token,verify=False)
 	assert 404 == result.status_code
-	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_DATA_KEY_UNKNOWN']	
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_DATA_KEY_UNKNOWN']	
 
 	# can read from an existing key
-	result = requests.get('http://127.0.0.1:4242/rest/data/read/test')
+	result = requests.get('https://127.0.0.1:4242/rest/data/read/test',params=token,verify=False)
 	assert 200 == result.status_code
+	print (result.json())
 	assert result.json()["value"] == value["value"]	
 
 def test_post_clear_data():
 	"""
 	Delete a key-value pair
 	"""
+	print(1)
 	# write a key-value pair
-	value = {"value" : "my test value"}	
-	result = requests.post('http://127.0.0.1:4242/rest/data/write/test',data=value)
+	value = {"value" : "my test value", "auth" : "validation-rest-calls"}	
+	result = requests.post('https://127.0.0.1:4242/rest/data/write/test',data=value,verify=False)
 	assert 200 == result.status_code
 
 	# cannot delete a non-existing key
-	result = requests.post('http://127.0.0.1:4242/rest/data/clear/does_not_exist')
+	token = {"auth" : "validation-rest-calls"}
+	result = requests.post('https://127.0.0.1:4242/rest/data/clear/does_not_exist',data=token,verify=False)
 	assert 404 == result.status_code
-	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_DATA_KEY_UNKNOWN']	
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_DATA_KEY_UNKNOWN']	
 
 	# can delete from an existing key
-	result = requests.post('http://127.0.0.1:4242/rest/data/clear/test')
+	result = requests.post('https://127.0.0.1:4242/rest/data/clear/test',data=token,verify=False)
 	assert 200 == result.status_code
 
-	result = requests.get('http://127.0.0.1:4242/rest/data/read/test')
+	result = requests.get('https://127.0.0.1:4242/rest/data/read/test',params=token,verify=False)
 	assert 404 == result.status_code
-	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_DATA_KEY_UNKNOWN']	
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_DATA_KEY_UNKNOWN']	
 
 def test_post_clear_all_data():
 	"""
@@ -107,17 +142,18 @@ def test_post_clear_all_data():
 	"""
 	# write a few key-value pairs
 	for i in range(10):
-		value = {"value" : "my test value"}	
-		result = requests.post('http://127.0.0.1:4242/rest/data/write/key%d' % i,data=value)
+		value = {"value" : "my test value", "auth" : "validation-rest-calls"}		
+		result = requests.post('https://127.0.0.1:4242/rest/data/write/key%d' % i,data=value,verify=False)
 		assert 200 == result.status_code
 
 	# delete all existing pairs
-	result = requests.post('http://127.0.0.1:4242/rest/data/clear_all')
+	token = {"auth" : "validation-rest-calls"}
+	result = requests.post('https://127.0.0.1:4242/rest/data/clear_all',data=token,verify=False)
 	assert 200 == result.status_code
 	assert result.json()["count"] == 10
 
 	# nothing more to delete
-	result = requests.post('http://127.0.0.1:4242/rest/data/clear_all')
+	result = requests.post('https://127.0.0.1:4242/rest/data/clear_all',data=token,verify=False)
 	assert 200 == result.status_code
 	assert result.json()["count"] == 0
 
@@ -128,12 +164,12 @@ def test_post_data_store_size():
 	# write key-value pairs until the maximum size is reached
 	data_store_full = False 
 	for i in range(1024):
-		value = {"value" : 1024*"k"}
+		value = {"value" : 1024*"k", "auth" : "validation-rest-calls"}
 		size = len(value["value"]) + len("key%d" % i)	
-		result = requests.post('http://127.0.0.1:4242/rest/data/write/key%d' % i,data=value)
+		result = requests.post('https://127.0.0.1:4242/rest/data/write/key%d' % i,data=value,verify=False)
 
-		if 507 == result.status_code:
-			assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_DATA_STORE_FULL']
+		if 404 == result.status_code:
+			assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_DATA_STORE_FULL']
 			data_store_full = True
 			break 
 		else:

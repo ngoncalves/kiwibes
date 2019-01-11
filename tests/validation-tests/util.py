@@ -50,6 +50,7 @@ KIWIBES_ERRORS = {
   	'ERROR_DATA_KEY_TAKEN'					: 17,
   	'ERROR_DATA_KEY_UNKNOWN'				: 18,	
   	'ERROR_DATA_STORE_FULL'                 : 19,
+  	'ERROR_AUTHENTICATION_FAIL'             : 20,
 	}
 
 KIWIBES_HOME = './build/'
@@ -75,6 +76,16 @@ def copy_database(fname):
 	"""
 	shutil.copyfile(os.path.join('./tests','data','databases',fname),	# source 
 		            os.path.join(KIWIBES_HOME,'kiwibes.json'))			# destination
+
+def copy_auth_tokens(fname): 
+	"""
+	Copy the file with the authentication tokens to the home folder
+
+	Arguments:
+		- fname : the name of the database
+	"""
+	shutil.copyfile(os.path.join('./tests','data','auth_tokens',fname),	# source 
+		            os.path.join(KIWIBES_HOME,'kiwibes.auth'))			# destination
 
 def launch_blocking(args):
 	"""

@@ -38,6 +38,7 @@ def setup_cleanup():
 	# setup the home folder and launch the Kiwibes server
 	util.clean_home_folder()
 	util.copy_database('rest_test_db.json')
+	util.copy_auth_tokens('demo.auth')
 	kiwibes = util.launch_non_blocking([util.KIWIBES_HOME,'-l','2'])
 
 	# run the test case
@@ -52,7 +53,8 @@ def test_get_invalid_url():
 	Attempt to request an invalid URL
 	"""
 	# asking for an invalid URL returns an error
-	result = requests.get('http://127.0.0.1:4242/does/not/exist')
+	token = {"auth" : "validation-rest-calls"}
+	result = requests.get('https://127.0.0.1:4242/does/not/exist',params=token,verify=False)
 
 	assert 404 == result.status_code
 
@@ -61,7 +63,7 @@ def test_get_all_job_names():
 	Retrieve a list with all job names
 	"""
 	# verify that the list of all job names can be retrieved 
-	result = requests.get('http://127.0.0.1:4242/rest/jobs/list')
+	result = requests.get('https://127.0.0.1:4242/rest/jobs/list',verify=False)
 
 	assert 200 == result.status_code
 	assert sorted(['hello_world','sleep_10','list_home']) == sorted(result.json())
@@ -71,22 +73,22 @@ def test_get_scheduled_jobs():
 	Return a list of jobs scheduled to run periodically
 	"""
 	# the jobs in the REST database have no schedule
-	result = requests.get('http://127.0.0.1:4242/rest/jobs/scheduled')
+	result = requests.get('https://127.0.0.1:4242/rest/jobs/scheduled',verify=False)
 	assert 200 == result.status_code
 	assert 0 == len(result.json())
 
 	# create a job with a schedule, it will be scheduled automatically
 	scheduled_job =  {
 		"program"     : [ "/bin/ls",'-l','-a','-h'],
-		"schedule"    : "0 * * * * *",
+		"schedule"    : "10 * * * * *",
 		"max-runtime" : 5,
+		"auth"        : "validation-rest-calls",
 	}
 
-	result = requests.post('http://127.0.0.1:4242/rest/job/create/list_hal',data=scheduled_job)	
+	result = requests.post('https://127.0.0.1:4242/rest/job/create/list_hal',data=scheduled_job,verify=False)	
 	assert 200 == result.status_code
-	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']		
-
-	result = requests.get('http://127.0.0.1:4242/rest/jobs/scheduled')
+	
+	result = requests.get('https://127.0.0.1:4242/rest/jobs/scheduled',verify=False)
 	assert 200 == result.status_code
 	assert ["list_hal"] == result.json()
 
@@ -95,13 +97,13 @@ def test_get_scheduled_jobs():
 		"program"     : [ "/bin/ls",'-l','-a','-h'],
 		"schedule"    : "",
 		"max-runtime" : 5,
+		"auth"        : "validation-rest-calls",	
 	}
 
-	result = requests.post('http://127.0.0.1:4242/rest/job/create/unscheduled_list_hal',data=unscheduled_job)	
+	result = requests.post('https://127.0.0.1:4242/rest/job/create/unscheduled_list_hal',data=unscheduled_job,verify=False)	
 	assert 200 == result.status_code
-	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']		
 
-	result = requests.get('http://127.0.0.1:4242/rest/jobs/scheduled')
+	result = requests.get('https://127.0.0.1:4242/rest/jobs/scheduled',verify=False)
 	assert 200 == result.status_code
 	assert ["list_hal"] == result.json()
 
@@ -110,13 +112,13 @@ def test_get_scheduled_jobs():
 		"program"     : [ "/bin/sleep",'10'],
 		"schedule"    : "0 0 * * * *",
 		"max-runtime" : 12,
+		"auth"        : "validation-rest-calls",
 	}
 
-	result = requests.post('http://127.0.0.1:4242/rest/job/edit/sleep_10',data=scheduled_job)	
+	result = requests.post('https://127.0.0.1:4242/rest/job/edit/sleep_10',data=scheduled_job,verify=False)	
 	assert 200 == result.status_code
-	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']		
 
-	result = requests.get('http://127.0.0.1:4242/rest/jobs/scheduled')
+	result = requests.get('https://127.0.0.1:4242/rest/jobs/scheduled',verify=False)
 	assert 200 == result.status_code
 	assert sorted(["list_hal","sleep_10"]) == sorted(result.json())
 
@@ -125,13 +127,13 @@ def test_get_scheduled_jobs():
 		"program"     : [ "/bin/sleep",'10'],
 		"schedule"    : "",
 		"max-runtime" : 12,
+		"auth"        : "validation-rest-calls",
 	}
 
-	result = requests.post('http://127.0.0.1:4242/rest/job/edit/sleep_10',data=unscheduled_job)	
+	result = requests.post('https://127.0.0.1:4242/rest/job/edit/sleep_10',data=unscheduled_job,verify=False)	
 	assert 200 == result.status_code
-	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']		
 
-	result = requests.get('http://127.0.0.1:4242/rest/jobs/scheduled')
+	result = requests.get('https://127.0.0.1:4242/rest/jobs/scheduled',verify=False)
 	assert 200 == result.status_code
 	assert sorted(["list_hal"]) == sorted(result.json())
 
@@ -140,15 +142,15 @@ def test_get_job_details():
 	Retrieve the details of a job
 	"""
 	# cannot retrieve the details of a non-existing job
-	result = requests.get('http://127.0.0.1:4242/rest/job/details/does_not_exist')
+	token = {"auth" : "validation-rest-calls"}
+	result = requests.get('https://127.0.0.1:4242/rest/job/details/does_not_exist',params=token,verify=False)
 	
 	assert 404 == result.status_code
 	print result.text
-	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_JOB_NAME_UNKNOWN']
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_NAME_UNKNOWN']
 	
 	# verify that it is possible to get all information for an existing job
-	result = requests.get('http://127.0.0.1:4242/rest/job/details/sleep_10')
-
+	result = requests.get('https://127.0.0.1:4242/rest/job/details/sleep_10',params=token,verify=False)
 	assert 200 == result.status_code
 	
 	assert result.json()["program"]       == [ "/bin/sleep", "10" ]
@@ -166,41 +168,44 @@ def test_post_create_job():
 	Create a job 
 	"""
 	# cannot create a job without a description
-	result = requests.post('http://127.0.0.1:4242/rest/job/create/my_shiny_job',data={})
-	
-	assert 400 == result.status_code
-	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_JOB_DESCRIPTION_INVALID']
+	empty_job = { "auth" : "validation-rest-calls" }
+	result = requests.post('https://127.0.0.1:4242/rest/job/create/my_shiny_job',data=empty_job,verify=False)
+	assert 404 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_DESCRIPTION_INVALID']
 
 	# cannot create a job using an existing name
 	job =  {
 		"program"     : [ "/bin/ls",'-l','-a','-h'],
 		"schedule"    : "",
 		"max-runtime" : 1,
+		"auth"        : "validation-rest-calls"
 	}
 
-	result = requests.post('http://127.0.0.1:4242/rest/job/create/sleep_10',data=job)
-	
-	assert 409 == result.status_code
-	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_JOB_NAME_TAKEN']
+	result = requests.post('https://127.0.0.1:4242/rest/job/create/sleep_10',data=job,verify=False)
+	assert 404 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_NAME_TAKEN']
 
 	# cannot create a job without the mandatory parameters
 	job1 =  {
 		"not-required" : 1.0,
+		"auth"         : "validation-rest-calls"
 	}
 
 	job2 =  {
 		"program" : ["/bin/ls"],
+		"auth"    : "validation-rest-calls"
 	}
 
 	job3 =  {
 		"program"  : ["/bin/ls"],
 		"schedule" : "",
+		"auth"     : "validation-rest-calls"
 	}
 
 	for job in [job1, job2, job3]:
-		result = requests.post('http://127.0.0.1:4242/rest/job/create/new_job',data=job)
-		assert 400 == result.status_code
-		assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_JOB_DESCRIPTION_INVALID']
+		result = requests.post('https://127.0.0.1:4242/rest/job/create/new_job',data=job,verify=False)
+		assert 404 == result.status_code
+		assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_DESCRIPTION_INVALID']
 
 	# can create a job with unnecessary parameters
 	job =  {
@@ -209,19 +214,19 @@ def test_post_create_job():
 		"max-runtime" : 1,
 		"avg-runtime" : 234.5,
 		"nbr-runs"    : 23,
+		"auth"        : "validation-rest-calls"
 	}
 
-	result = requests.post('http://127.0.0.1:4242/rest/job/create/jobby_job_job',data=job)	
+	result = requests.post('https://127.0.0.1:4242/rest/job/create/jobby_job_job',data=job,verify=False)	
 	assert 200 == result.status_code
-	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']	
 
 	# verify that the job was created and that the details are correct
-	result = requests.get('http://127.0.0.1:4242/rest/jobs/list')
+	result = requests.get('https://127.0.0.1:4242/rest/jobs/list',verify=False)
 	assert 200 == result.status_code
 	assert 'jobby_job_job' in result.json()
 
-	result = requests.get('http://127.0.0.1:4242/rest/job/details/jobby_job_job')
-
+	token = {"auth" : "validation-rest-calls"}
+	result = requests.get('https://127.0.0.1:4242/rest/job/details/jobby_job_job',params=token,verify=False)
 	assert 200 == result.status_code
 	
 	assert result.json()["program"]     == [ "/bin/ls",'-l','-a','-h']

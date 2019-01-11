@@ -59,7 +59,7 @@ ut-kiwibes:
 	make -C $(UNIT_TESTS) run
 
 vld-kiwibes: kiwibes
-	-python -m pytest -v $(VLD_TESTS)
+	-python -W ignore -m pytest -v $(VLD_TESTS)
 
 #----------------------------------------------------------------------------
 # OpenSSL Options
@@ -83,7 +83,7 @@ kiwibes-demo: kiwibes kiwibes-cert
 	-cp $(TESTS)/data/auth_tokens/demo.auth $(BUILD)/kiwibes.auth
 	-$(BUILD)/kiwibes ./$(BUILD)/ -l 2
 
-.PHONY: clean ut-kiwibes
+.PHONY: clean
 
 clean:
 	@echo '============================================'

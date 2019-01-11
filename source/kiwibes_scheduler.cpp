@@ -55,7 +55,7 @@ static void scheduler_thread(KiwibesDatabase    *database,
   @param database   pointer to the database
   @param events     events queue
  */
-static T_KIWIBES_ERROR unsafe_job_schedule(const std::string &name, KiwibesDatabase *database, std::priority_queue<KiwibesSchedulerEvent *> events);
+static T_KIWIBES_ERROR unsafe_job_schedule(const std::string &name, KiwibesDatabase *database, std::priority_queue<KiwibesSchedulerEvent *> &events);
 
 /*--------------------- Modified Piority Queue -------------------------------*/
 /** Returns the underlying container of the priority queue
@@ -167,7 +167,7 @@ void KiwibesScheduler::get_all_scheduled_job_names(std::vector<std::string> &job
 
   for(unsigned int e = 0; e < vEvents.size(); e++)
   {
-    if(EVENT_START_JOB ==vEvents[e]->type)
+    if(EVENT_START_JOB == vEvents[e]->type)
     {
       jobs.push_back(std::string(*(vEvents[e]->job_name)));
     }
@@ -228,7 +228,7 @@ static void scheduler_thread(KiwibesDatabase *database, KiwibesJobsManager *mana
   }
 }
 
-static T_KIWIBES_ERROR unsafe_job_schedule(const std::string &name, KiwibesDatabase *database, std::priority_queue<KiwibesSchedulerEvent *> events)
+static T_KIWIBES_ERROR unsafe_job_schedule(const std::string &name, KiwibesDatabase *database, std::priority_queue<KiwibesSchedulerEvent *> &events)
 {
   nlohmann::json  job;
   T_KIWIBES_ERROR error = database->get_job_description(job,name);
@@ -249,8 +249,7 @@ static T_KIWIBES_ERROR unsafe_job_schedule(const std::string &name, KiwibesDatab
     else
     {
       events.push(new KiwibesSchedulerEvent(EVENT_START_JOB,cron.next(),name));
-
-      LOG_INFO << "scheduled job '" << name << "'";      
+      LOG_INFO << "scheduled job '" << name << "'";     
     }
   }
 
