@@ -26,11 +26,12 @@
 # Directory organization
 #----------------------------------------------------------------------------
 
-SOURCE 			:= source
-TESTS  			:= tests
-BUILD  			:= build
-UNIT_TESTS 		:= $(TESTS)/unit-tests
-VLD_TESTS  		:= $(TESTS)/validation-tests
+SOURCE 	   := source
+TESTS  	   := tests
+BUILD  	   := build
+UNIT_TESTS := $(TESTS)/unit-tests
+VLD_TESTS  := $(TESTS)/validation-tests
+CERTS      := $(TESTS)/data/certificates
 
 #----------------------------------------------------------------------------
 # Targets
@@ -72,8 +73,8 @@ kiwibes-cert:
 	@echo '================================================================'
 	@echo ' Generating the server private key and self-signed certificate  '
 	@echo '================================================================'
-	-openssl $(OPENSSL_OPTS) $(OPENSSL_ALG):$(OPENSSL_BITS) -keyout $(BUILD)/kiwibes.key -out $(BUILD)/kiwibes.cert -days 365
-	-openssl $(OPENSSL_ALG) -pubout -in $(BUILD)/kiwibes.key -out $(BUILD)/kiwibes.pub_key
+	-openssl $(OPENSSL_OPTS) $(OPENSSL_ALG):$(OPENSSL_BITS) -keyout $(CERTS)/kiwibes.key -out $(CERTS)/kiwibes.cert -days 365
+	-openssl $(OPENSSL_ALG) -pubout -in $(CERTS)/kiwibes.key -out $(CERTS)/kiwibes.pub_key
 
 kiwibes-demo: kiwibes kiwibes-cert
 	@echo '============================================'
@@ -81,6 +82,7 @@ kiwibes-demo: kiwibes kiwibes-cert
 	@echo '============================================'
 	-cp $(TESTS)/data/databases/demo.json $(BUILD)/kiwibes.json
 	-cp $(TESTS)/data/auth_tokens/demo.auth $(BUILD)/kiwibes.auth
+	-cp $(CERTS)/* $(BUILD)/.
 	-$(BUILD)/kiwibes ./$(BUILD)/ -l 2
 
 .PHONY: clean

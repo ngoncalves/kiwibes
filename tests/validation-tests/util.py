@@ -28,6 +28,7 @@ import shutil
 import subprocess 
 import time 
 import datetime
+import json 
 
 KIWIBES_ERRORS = { 
 	'ERROR_NO_ERROR' 				 		: 0,
@@ -51,6 +52,7 @@ KIWIBES_ERRORS = {
   	'ERROR_DATA_KEY_UNKNOWN'				: 18,	
   	'ERROR_DATA_STORE_FULL'                 : 19,
   	'ERROR_AUTHENTICATION_FAIL'             : 20,
+  	'ERROR_HTTPS_CERTS_FAIL'                : 21,
 	}
 
 KIWIBES_HOME = './build/'
@@ -58,14 +60,24 @@ KIWIBES_BIN  = os.path.join(KIWIBES_HOME,'kiwibes')
 
 def clean_home_folder(home=KIWIBES_HOME):
 	"""
-	Clear all log and JSON files in the home folder
+	Clear all files in the home folder, except for possibly
+	the executable.
 
 	Arguments:
 		- home : the path to the home folder, defaults to './build'
 	"""
 	for fname in os.listdir(home):
-		if fname.endswith(".json") or fname.endswith(".txt"):
+		if not fname == "kiwibes":
 			os.remove(os.path.join(home,fname))
+
+def copy_ssl_certs():
+	"""
+	Copy the SSL certificates to home directory
+	"""
+	for f in ['kiwibes.cert','kiwibes.key']:
+		source = os.path.join('./tests','data','certificates',f)
+		dest   = os.path.join(KIWIBES_HOME,f)
+		shutil.copyfile(source,dest) 
 
 def copy_database(fname): 
 	"""

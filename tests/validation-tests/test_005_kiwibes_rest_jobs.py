@@ -39,6 +39,8 @@ def setup_cleanup():
 	util.clean_home_folder()
 	util.copy_database('rest_test_db.json')
 	util.copy_auth_tokens('demo.auth')
+	util.copy_ssl_certs()
+
 	kiwibes = util.launch_non_blocking([util.KIWIBES_HOME,'-l','2'])
 
 	# run the test case
@@ -47,16 +49,6 @@ def setup_cleanup():
 	# cleanup
 	kiwibes.kill()
 	time.sleep(3.0)
-
-def test_get_invalid_url(): 
-	"""
-	Attempt to request an invalid URL
-	"""
-	# asking for an invalid URL returns an error
-	token = {"auth" : "validation-rest-calls"}
-	result = requests.get('https://127.0.0.1:4242/does/not/exist',params=token,verify=False)
-
-	assert 404 == result.status_code
 
 def test_get_all_job_names(): 
 	"""
@@ -247,40 +239,42 @@ def test_post_edit_job():
 		"program"     : [ "/bin/ls",'-l','-a','-h'],
 		"schedule"    : "* * * * 5 1",
 		"max-runtime" : 1234,
+		"auth"        : "validation-rest-calls"
 	}	
-	result = requests.post('http://127.0.0.1:4242/rest/job/edit/does_not_exist',data=new_job)
+	token = { "auth" : "validation-rest-calls"}
+
+	result = requests.post('https://127.0.0.1:4242/rest/job/edit/does_not_exist',data=new_job,verify=False)
 	
 	assert 404 == result.status_code
-	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_JOB_NAME_UNKNOWN']
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_NAME_UNKNOWN']
 
 	# the JSON data must not be empty
-	result = requests.post('http://127.0.0.1:4242/rest/job/edit/list_home',data={})
+	result = requests.post('https://127.0.0.1:4242/rest/job/edit/list_home',data=token,verify=False)
 	
-	assert 400 == result.status_code
-	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_JOB_DESCRIPTION_INVALID']
+	assert 404 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_DESCRIPTION_INVALID']
 
 	# cannot edit a job that is running
-	result = requests.post('http://127.0.0.1:4242/rest/job/start/sleep_10')
+	result = requests.post('https://127.0.0.1:4242/rest/job/start/sleep_10',data=token,verify=False)
 	assert 200 == result.status_code
 
 	time.sleep(2)
-	result = requests.post('http://127.0.0.1:4242/rest/job/edit/sleep_10',data=new_job)
+	result = requests.post('https://127.0.0.1:4242/rest/job/edit/sleep_10',data=new_job,verify=False)
 	
-	assert 403 == result.status_code
-	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_JOB_IS_RUNNING']
+	assert 404 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_IS_RUNNING']
 
-	requests.post('http://127.0.0.1:4242/rest/job/stop/sleep_10')
+	requests.post('https://127.0.0.1:4242/rest/job/stop/sleep_10',data=token,verify=False)
 
 	# change the job parameters
-	result = requests.get('http://127.0.0.1:4242/rest/job/details/list_home')
+	result = requests.get('https://127.0.0.1:4242/rest/job/details/list_home',params=token,verify=False)
 	assert 200 == result.status_code	
 	before_edit = result.json()
 
-	result = requests.post('http://127.0.0.1:4242/rest/job/edit/list_home',data=new_job)
+	result = requests.post('https://127.0.0.1:4242/rest/job/edit/list_home',data=new_job,verify=False)
 	assert 200 == result.status_code
-	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_NO_ERROR']
 
-	result = requests.get('http://127.0.0.1:4242/rest/job/details/list_home')
+	result = requests.get('https://127.0.0.1:4242/rest/job/details/list_home',params=token,verify=False)
 	assert 200 == result.status_code
 	
 	assert result.json()["program"]     == new_job["program"]
@@ -298,13 +292,14 @@ def test_post_edit_job():
 	job = { "param1"      : "this will be ignored",
 	        "status"      : "jumping",
 	        "avg-runtime" : 1.0,
-	        }
+	        "auth"        : "validation-rest-calls"
+	      }
 
-	result = requests.post('http://127.0.0.1:4242/rest/job/edit/list_home',data=job)
-	assert 400 == result.status_code
-	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_JOB_DESCRIPTION_INVALID']
+	result = requests.post('https://127.0.0.1:4242/rest/job/edit/list_home',data=job,verify=False)
+	assert 404 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_DESCRIPTION_INVALID']
 
-	result = requests.get('http://127.0.0.1:4242/rest/job/details/list_home')
+	result = requests.get('https://127.0.0.1:4242/rest/job/details/list_home',params=token,verify=False)
 	assert 200 == result.status_code
 	
 	for k in after_edit.keys():
@@ -316,46 +311,48 @@ def test_post_delete_job():
 	"""
 	Delete an existing job 
 	"""
+	token = { "auth" : "validation-rest-calls"}
 	# cannot delete an unknown job
-	result = requests.post('http://127.0.0.1:4242/rest/job/delete/my_shiny_job')
+	result = requests.post('https://127.0.0.1:4242/rest/job/delete/my_shiny_job',data=token,verify=False)
 	assert 404 == result.status_code
-	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_JOB_NAME_UNKNOWN']
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_NAME_UNKNOWN']
 
 	# cannot delete a job that is running
-	result = requests.post('http://127.0.0.1:4242/rest/job/start/sleep_10')
+	result = requests.post('https://127.0.0.1:4242/rest/job/start/sleep_10',data=token,verify=False)
 	assert 200 == result.status_code
 	
 	time.sleep(2)
 
-	result = requests.post('http://127.0.0.1:4242/rest/job/delete/sleep_10')
-	assert 403 == result.status_code
-	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_JOB_IS_RUNNING']
+	result = requests.post('https://127.0.0.1:4242/rest/job/delete/sleep_10',data=token,verify=False)
+	assert 404 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_IS_RUNNING']
 
-	result = requests.post('http://127.0.0.1:4242/rest/job/stop/sleep_10')
+	result = requests.post('https://127.0.0.1:4242/rest/job/stop/sleep_10',data=token,verify=False)
 	
 	# delete an existing job
-	result = requests.post('http://127.0.0.1:4242/rest/job/delete/list_home')
+	result = requests.post('https://127.0.0.1:4242/rest/job/delete/list_home',data=token,verify=False)
 	assert 200 == result.status_code
 	
-	result = requests.get('http://127.0.0.1:4242/rest/jobs/list')
+	result = requests.get('https://127.0.0.1:4242/rest/jobs/list',params=token,verify=False)
 	assert not 'list_home' in result.json()
 
 def test_start_job():
 	"""
 	Start a job 
 	"""
+	token = { "auth" : "validation-rest-calls"}	
 	# cannot start a job which does not exist
-	result = requests.post('http://127.0.0.1:4242/rest/job/start/does_not_exist')
+	result = requests.post('https://127.0.0.1:4242/rest/job/start/does_not_exist',data=token,verify=False)
 	assert 404 == result.status_code
-	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_JOB_NAME_UNKNOWN']
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_NAME_UNKNOWN']
 
 	# start a job and verify it has started
 	assert False == os.path.isfile(os.path.join(util.KIWIBES_HOME,"hello_world.txt"))
 
-	result = requests.post('http://127.0.0.1:4242/rest/job/start/hello_world')
+	result = requests.post('https://127.0.0.1:4242/rest/job/start/hello_world',data=token,verify=False)
 	assert 200 == result.status_code
 
-	result = requests.get('http://127.0.0.1:4242/rest/job/details/hello_world')
+	result = requests.get('https://127.0.0.1:4242/rest/job/details/hello_world',params=token,verify=False)
 	assert 200 == result.status_code
 	
 	assert result.json()["status"] == "running"
@@ -364,7 +361,7 @@ def test_start_job():
 	# wait until the job has stopped
 	time.sleep(7.0)
 
-	result = requests.get('http://127.0.0.1:4242/rest/job/details/hello_world')
+	result = requests.get('https://127.0.0.1:4242/rest/job/details/hello_world',params=token,verify=False)
 	assert 200 == result.status_code
 	
 	# not checking runtime statistics because it depends heavily on
@@ -381,23 +378,24 @@ def test_stop_job():
 	"""
 	Stop a job 
 	"""
+	token = { "auth" : "validation-rest-calls"}	
 	# cannot stop a job which does not exist
-	result = requests.post('http://127.0.0.1:4242/rest/job/stop/does_not_exist')
+	result = requests.post('https://127.0.0.1:4242/rest/job/stop/does_not_exist',data=token,verify=False)
 	assert 404 == result.status_code
-	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_JOB_NAME_UNKNOWN']
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_NAME_UNKNOWN']
 
 	# cannot stop a job that is not running
-	result = requests.post('http://127.0.0.1:4242/rest/job/stop/sleep_10')
-	assert 403 == result.status_code
-	assert result.json()["code"] == util.KIWIBES_ERRORS['ERROR_JOB_IS_NOT_RUNNING']	
+	result = requests.post('https://127.0.0.1:4242/rest/job/stop/sleep_10',data=token,verify=False)
+	assert 404 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_JOB_IS_NOT_RUNNING']	
 
 	# start a job, then stopp it
 	assert False == os.path.isfile(os.path.join(util.KIWIBES_HOME,"hello_world.txt"))
 
-	result = requests.post('http://127.0.0.1:4242/rest/job/start/hello_world')
+	result = requests.post('https://127.0.0.1:4242/rest/job/start/hello_world',data=token,verify=False)
 	assert 200 == result.status_code
 	
-	result = requests.get('http://127.0.0.1:4242/rest/job/details/hello_world')
+	result = requests.get('https://127.0.0.1:4242/rest/job/details/hello_world',params=token,verify=False)
 	assert 200 == result.status_code
 	
 	assert result.json()["status"] == "running"
@@ -405,13 +403,13 @@ def test_stop_job():
 
 	time.sleep(1.0)
 
-	result = requests.post('http://127.0.0.1:4242/rest/job/stop/hello_world')
+	result = requests.post('https://127.0.0.1:4242/rest/job/stop/hello_world',data=token,verify=False)
 	assert 200 == result.status_code
 	
 	# wait a little for the job thread to exit, then query the job details
 	time.sleep(1.0)
 
-	result = requests.get('http://127.0.0.1:4242/rest/job/details/hello_world')
+	result = requests.get('https://127.0.0.1:4242/rest/job/details/hello_world',params=token,verify=False)
 	assert 200 == result.status_code
 	
 	assert result.json()["avg-runtime"] < 10.0
@@ -422,23 +420,24 @@ def test_stop_job():
 	# verify that the job did not ran to completion
 	assert False == os.path.isfile(os.path.join(util.KIWIBES_HOME,"hello_world.txt"))
 
-def test_queue_jobs():
+def test_queue_job():
 	"""
 	Start the same job multiple times, and check that
 	it becomes queued
 	"""
+	token = { "auth" : "validation-rest-calls"}	
 	# start the same job multiple times
-	result = requests.post("http://127.0.0.1:4242/rest/job/start/hello_world")
+	result = requests.post("https://127.0.0.1:4242/rest/job/start/hello_world",data=token,verify=False)
 	assert 200 == result.status_code
 
-	result = requests.post("http://127.0.0.1:4242/rest/job/start/hello_world")
+	result = requests.post("https://127.0.0.1:4242/rest/job/start/hello_world",data=token,verify=False)
 	assert 200 == result.status_code
 
-	result = requests.post("http://127.0.0.1:4242/rest/job/start/hello_world")
+	result = requests.post("https://127.0.0.1:4242/rest/job/start/hello_world",data=token,verify=False)
 	assert 200 == result.status_code
 
 	# verify it is queued
-	result = requests.get("http://127.0.0.1:4242/rest/job/details/hello_world")
+	result = requests.get("https://127.0.0.1:4242/rest/job/details/hello_world",params=token,verify=False)
 	assert 200 == result.status_code
 
 	assert result.json()["status"]        == "running"
@@ -447,9 +446,53 @@ def test_queue_jobs():
 	# wait for all executions to finish
 	time.sleep(20)
 
-	result = requests.get("http://127.0.0.1:4242/rest/job/details/hello_world")
+	result = requests.get("https://127.0.0.1:4242/rest/job/details/hello_world",params=token,verify=False)
 	assert 200 == result.status_code
 
 	assert result.json()["status"]        == "stopped"
 	assert result.json()["pending-start"] == 0
 	assert result.json()["nbr-runs"]      == 3
+
+def test_clear_job_queue():
+	"""
+	Start the same job multiple times, and check that
+	it becomes queued and then clear its queue.
+	"""
+	token = { "auth" : "validation-rest-calls"}	
+
+	# it is an error to clear the queue of a non-existing job
+	result = requests.post("https://127.0.0.1:4242/rest/job/clear_pending/does-not-exist",data=token,verify=False)
+	assert 404 == result.status_code
+	
+	# it is OK to clear the queue of a job that is not running
+	result = requests.post("https://127.0.0.1:4242/rest/job/clear_pending/sleep_10",data=token,verify=False)
+	assert 200 == result.status_code
+	
+	# start the same job multiple times
+	result = requests.post("https://127.0.0.1:4242/rest/job/start/hello_world",data=token,verify=False)
+	assert 200 == result.status_code
+
+	result = requests.post("https://127.0.0.1:4242/rest/job/start/hello_world",data=token,verify=False)
+	assert 200 == result.status_code
+
+	result = requests.post("https://127.0.0.1:4242/rest/job/start/hello_world",data=token,verify=False)
+	assert 200 == result.status_code
+
+	# verify it is queued
+	result = requests.get("https://127.0.0.1:4242/rest/job/details/hello_world",params=token,verify=False)
+	assert 200 == result.status_code
+
+	assert result.json()["status"]        == "running"
+	assert result.json()["pending-start"] == 2
+
+	# clear the job queue and wait for the first instance to finish
+	result = requests.post("https://127.0.0.1:4242/rest/job/clear_pending/hello_world",data=token,verify=False)
+	assert 200 == result.status_code
+	time.sleep(5)
+	
+	result = requests.get("https://127.0.0.1:4242/rest/job/details/hello_world",params=token,verify=False)
+	assert 200 == result.status_code
+
+	assert result.json()["status"]        == "stopped"
+	assert result.json()["pending-start"] == 0
+	assert result.json()["nbr-runs"]      == 1

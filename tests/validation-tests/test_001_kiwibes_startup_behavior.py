@@ -24,6 +24,7 @@ Test the startup behavior of the Kiwibes Automation Server
 import util
 import os
 import json
+import shutil
 
 def test_invalid_arguments():
 	"""
@@ -77,11 +78,13 @@ def test_invalid_database():
 
 def test_empty_home():
 	"""
-	Verify that on startup with an empty folder:
+	Verify that on starteup with only the SSL certificates present:
 		- a log file is created
 		- an empty database is created
 	"""
 	util.clean_home_folder()
+	util.copy_ssl_certs()
+		            
 	kiwibes = util.launch_non_blocking([util.KIWIBES_HOME])
 
 	db_created  = os.path.isfile(os.path.join(util.KIWIBES_HOME,"kiwibes.json"))
@@ -94,3 +97,12 @@ def test_empty_home():
 	assert db_created == True 
 	assert db == None
 	assert log_created == True 
+
+def test_no_ssl_certificates():
+	"""
+	Verify that the SSL certificates are mandatory
+	"""
+	util.clean_home_folder()
+	util.copy_database('rest_test_db.json')
+
+	assert util.KIWIBES_ERRORS['ERROR_HTTPS_CERTS_FAIL'] == util.launch_blocking([util.KIWIBES_HOME])

@@ -38,6 +38,8 @@ def setup_cleanup():
 	util.clean_home_folder()
 	util.copy_database('rest_test_db.json')
 	util.copy_auth_tokens('demo.auth')
+	util.copy_ssl_certs()
+	
 	kiwibes = util.launch_non_blocking([util.KIWIBES_HOME,'-l','2','-d','1'])
 
 	# run the test case
@@ -45,36 +47,6 @@ def setup_cleanup():
 
 	# cleanup and backup the db
 	kiwibes.terminate()
-
-def test_invalid_authentication():
-	"""
-	Attempt to use any of the REST calls without authentication 
-	will fail
-	"""
-	# calling without any authentication token -> fail
-	for call in ["read", "write", "clear", "clear_all"]:
-		if call == "read":
-			result = requests.get('https://127.0.0.1:4242/rest/data/%s/test' % call,verify=False)
-		elif call == "clear_all":
-			result = requests.post('https://127.0.0.1:4242/rest/data/%s' % call,verify=False)
-		else: 
-			result = requests.post('https://127.0.0.1:4242/rest/data/%s/test' % call,verify=False)
-
-		assert 404 == result.status_code
-		assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_AUTHENTICATION_FAIL']
-
-	# calling with an invalid authentication token -> fail
-	auth = { "auth" : "this-is-invalid !"}
-	for call in ["read", "write", "clear", "clear_all"]:
-		if call == "read":
-			result = requests.get('https://127.0.0.1:4242/rest/data/%s/test' % call,data=auth,verify=False)
-		elif call == "clear_all":
-			result = requests.post('https://127.0.0.1:4242/rest/data/%s' % call,data=auth,verify=False)
-		else: 
-			result = requests.post('https://127.0.0.1:4242/rest/data/%s/test' % call,data=auth,verify=False)
-		
-		assert 404 == result.status_code
-		assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_AUTHENTICATION_FAIL']
 
 def test_post_data_write(): 
 	"""

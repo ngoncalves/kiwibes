@@ -93,6 +93,7 @@ bool KiwibesAuthentication::verify_auth_token(const std::string &token)
 static void watcher_thread(const std::string *fname, std::set<std::string> *tokens, std::mutex *tlock, bool *exitFlag)
 {
   std::time_t last_modified = 0;
+  bool        has_warned    = false;
 
   while(false == *exitFlag)
   {
@@ -103,6 +104,8 @@ static void watcher_thread(const std::string *fname, std::set<std::string> *toke
 
     if(0 == stat(fname->c_str(),&result))
     {
+      has_warned = false;
+      
       if(last_modified < result.st_mtime)
       {
         /* load the tokens */
@@ -120,6 +123,8 @@ static void watcher_thread(const std::string *fname, std::set<std::string> *toke
               {
                 tokens->insert(item->get<std::string>());
               }
+
+              LOG_CRIT << "loaded authentication tokens from JSON file: " << (*fname);
           }
           catch(nlohmann::detail::parse_error &e)
           {
@@ -134,6 +139,16 @@ static void watcher_thread(const std::string *fname, std::set<std::string> *toke
         }
 
         last_modified = result.st_mtime;
+      }
+    }
+    else
+    {
+      /* clear all tokens since the file was probably removed */
+      tokens->clear();
+      if(false == has_warned)
+      {
+        LOG_WARN << "failed to locate authentication JSON file: " << (*fname);
+        has_warned = true;
       }
     }
 #endif
