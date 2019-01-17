@@ -6,3 +6,4 @@ tests/unit-tests/ut_declarations.h
 .pytest_cache
 tests/validation-tests/__pycache__/
 tests/validation-tests/*.pyc
+clients/python/*.pyc

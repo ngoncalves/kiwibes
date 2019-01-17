@@ -1,3 +1,4 @@
 [ "kiwibesdemo",
-  "validation-rest-calls"
+  "validation-rest-calls",
+  "python-client-token"
 ]

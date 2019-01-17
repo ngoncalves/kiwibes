@@ -42,13 +42,14 @@ all: help
 help:
 	@echo '--------------------------------------------------------------------------'
 	@echo 'Available targets:'
-	@echo '  kiwibes      	: build the Kiwibes Automation Server'
-	@echo '  ut-kiwibes   	: build and run the unit tests for Kiwibes'
-	@echo '  vld-kiwibes	: run the validation tests for Kiwibes'
-	@echo '  kiwibes-cert	: create the server private key and self-signed certificate'
-	@echo '  kiwibes-demo	: setup and run a demo instance of Kiwibes'
-	@echo '  clean        	: clear the build directory'
-	@echo '  help         	: this text'
+	@echo '  kiwibes      		: build the Kiwibes Automation Server'
+	@echo '  ut-kiwibes   		: build and run the unit tests for Kiwibes'
+	@echo '  vld-kiwibes		: run the validation tests for Kiwibes'
+	@echo '  kiwibes-cert		: create the server private key and self-signed certificate'
+	@echo '  kiwibes-demo		: setup and run a demo instance of Kiwibes'
+	@echo '  test-python-client	: test the Python client'
+	@echo '  clean        		: clear the build directory'
+	@echo '  help         		: this text'
 	@echo '--------------------------------------------------------------------------'
 
 kiwibes:
@@ -61,6 +62,9 @@ ut-kiwibes:
 
 vld-kiwibes: kiwibes
 	-python -W ignore -m pytest -v $(VLD_TESTS)
+
+test-python-client: kiwibes
+	-python -W ignore -m pytest -v $(VLD_TESTS)/clients/python
 
 #----------------------------------------------------------------------------
 # OpenSSL Options
@@ -85,7 +89,7 @@ kiwibes-demo: kiwibes kiwibes-cert
 	-cp $(CERTS)/* $(BUILD)/.
 	-$(BUILD)/kiwibes ./$(BUILD)/ -l 2
 
-.PHONY: clean
+.PHONY: clean 
 
 clean:
 	@echo '============================================'

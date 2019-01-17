@@ -84,6 +84,17 @@ T_KIWIBES_ERROR KiwibesDataStore::read(std::string &value, const std::string &ke
   return error;
 }
 
+void KiwibesDataStore::get_keys(std::vector<std::string> &keys)
+{
+  std::lock_guard<std::mutex> lock(dslock);
+
+  keys.clear();
+  for(auto it = store.begin(); it != store.end(); it++)
+  {
+    keys.push_back(it->first);
+  }
+}
+
 T_KIWIBES_ERROR KiwibesDataStore::clear(const std::string &key)
 {
   std::lock_guard<std::mutex> lock(dslock);

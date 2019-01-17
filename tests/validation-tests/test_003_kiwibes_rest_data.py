@@ -148,3 +148,32 @@ def test_post_data_store_size():
 			assert 200 == result.status_code
 	
 	assert data_store_full
+
+def test_post_data_store_get_keys():
+	"""
+	Return a list of keys on the data store.
+	"""
+	# verify that it must be authenticated in order to read from the data store
+	result = requests.get('https://127.0.0.1:4242/rest/data/keys',verify=False)
+	assert 404 == result.status_code
+	assert result.json()["error"] == util.KIWIBES_ERRORS['ERROR_AUTHENTICATION_FAIL']
+
+	# an initially empty data store has no keys
+	token = {"auth" : "validation-rest-calls"}
+	result = requests.get('https://127.0.0.1:4242/rest/data/keys',params=token,verify=False)
+	assert 200 == result.status_code
+	assert [] == result.json()
+
+	# write a few key-value pairs
+	data_store_full = False
+	keys = [] 
+	for i in range(10):
+		value = {"value" : 1024*"k", "auth" : "validation-rest-calls"}
+		result = requests.post('https://127.0.0.1:4242/rest/data/write/key%d' % i,data=value,verify=False)
+		assert 200 == result.status_code
+
+		keys.append("key%d" % i)
+
+	result = requests.get('https://127.0.0.1:4242/rest/data/keys',params=token,verify=False)
+	assert 200 == result.status_code
+	assert sorted(keys) == sorted(result.json())

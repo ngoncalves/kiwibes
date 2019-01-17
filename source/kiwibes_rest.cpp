@@ -139,6 +139,13 @@ static void rest_post_clear_all_data(const httplib::Request& req, httplib::Respo
  */
 static void rest_get_read_data(const httplib::Request& req, httplib::Response& res);
 
+/** REST: Get all data store keys
+
+  @param req  the incoming HTTP request
+  @param res  the outgoing HTTP response
+ */
+static void rest_get_data_store_keys(const httplib::Request& req, httplib::Response& res);
+
 /** Set the return error code
  */
 static void set_return_code(httplib::Response& res, T_KIWIBES_ERROR error);
@@ -171,6 +178,7 @@ void setup_rest_interface(httplib::SSLServer *https,
   https->Post("/rest/data/clear/([a-zA-Z_0-9]+)",rest_post_clear_data);    
   https->Post("/rest/data/clear_all",rest_post_clear_all_data);    
   https->Get( "/rest/data/read/([a-zA-Z_0-9]+)",rest_get_read_data);    
+  https->Get( "/rest/data/keys",rest_get_data_store_keys);    
   
   https->Get("/rest/jobs/list",rest_get_jobs_list);
   https->Get("/rest/jobs/scheduled",rest_get_scheduled_jobs);
@@ -488,6 +496,30 @@ static void rest_get_read_data(const httplib::Request& req, httplib::Response& r
       jvalue["value"] = value;
       res.set_content(jvalue.dump(),"application/json");   
     }
+  }
+  
+  set_return_code(res,error); 
+}
+
+static void rest_get_data_store_keys(const httplib::Request& req, httplib::Response& res)
+{
+  T_KIWIBES_ERROR error = ERROR_NO_ERROR;
+
+  if((true != req.has_param("auth")) ||
+     (true != pAuthentication->verify_auth_token(req.get_param_value("auth")))
+    )
+  {
+    error = ERROR_AUTHENTICATION_FAIL; 
+  }
+  else
+  {
+    std::vector<std::string> keys; 
+    pDataStore->get_keys(keys);
+
+    nlohmann::json jvalue(keys);
+
+    res.status = 200;
+    res.set_content(jvalue.dump(),"application/json");   
   }
   
   set_return_code(res,error); 

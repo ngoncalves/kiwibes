@@ -53,6 +53,7 @@ KIWIBES_ERRORS = {
   	'ERROR_DATA_STORE_FULL'                 : 19,
   	'ERROR_AUTHENTICATION_FAIL'             : 20,
   	'ERROR_HTTPS_CERTS_FAIL'                : 21,
+  	'ERROR_SERVER_NOT_FOUND'                : 22,
 	}
 
 KIWIBES_HOME = './build/'

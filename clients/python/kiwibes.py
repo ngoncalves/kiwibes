@@ -44,6 +44,8 @@ class KiwibesServer():
     ERROR_DATA_KEY_UNKNOWN        = 18
     ERROR_DATA_STORE_FULL         = 19
     ERROR_AUTHENTICATION_FAIL     = 20
+    ERROR_HTTPS_CERTS_FAIL        = 21
+    ERROR_SERVER_NOT_FOUND        = 22
    
     def __init__(self,auth_token,host='localhost',port=4242,verify_cert=True):
         """
@@ -71,14 +73,21 @@ class KiwibesServer():
         Returns:
             - ERROR_NO_ERROR if successfull, error code otherwise
         """
-        path = self.url + route
-        result = requests.post(path,data=data,verify=self.verify_cert)
-        if 200 != result.status_code:
-            logging.error("POST - %s: (%d) %s" % (path,result.json()["error"],result.json()["message"])) 
-            return result.json()["error"]
-        else:
-            return ERROR_NO_ERROR
-            
+        try: 
+            path = self.url + route
+            result = requests.post(path,data=data,verify=self.verify_cert)
+            if 200 != result.status_code:
+                logging.error("POST - %s: (%d) %s" % (path,result.json()["error"],result.json()["message"])) 
+                return result.json()["error"]
+            else:
+                return self.ERROR_NO_ERROR
+        except requests.exceptions.SSLError:
+            logging.error("invalid or self-signed Kiwibes server certificate !")    
+            return self.ERROR_HTTPS_CERTS_FAIL
+        except requests.exceptions.ConnectionError:
+            logging.error("failed to connect to Kiwibes server")    
+            return self.ERROR_SERVER_NOT_FOUND
+
     def __get(self,route,data): 
         """
         GET method for the given HTTP route.
@@ -88,10 +97,14 @@ class KiwibesServer():
             - data  : the POST call data 
 
         Returns:
-            - the response
+            - the response, None in case of error
         """
-        path = self.url + route
-        return requests.get(path,params=data,verify=self.verify_cert)
+        try:
+            path = self.url + route
+            return requests.get(path,params=data,verify=self.verify_cert)
+        except requests.exceptions.SSLError:
+            logging.error("invalid or self-signed Kiwibes server certificate !")    
+            return None
 
     def datastore_write(self,key,value):
         """
@@ -121,8 +134,8 @@ class KiwibesServer():
         logging.info("Reading from datastore: %s" % key)
         params = { "auth"  : self.token }
         response = self.__get("/rest/data/read/%s" % key,params)
-        if 200 == response.status_code:
-            return result.json()["value"]
+        if response and 200 == response.status_code:
+            return response.json()["value"]
         else:
             return None
 
@@ -155,23 +168,31 @@ class KiwibesServer():
         logging.info("Retrieving list of all jobs")
         params = { "auth"  : self.token }
         response = self.__get("/rest/jobs/list",params)
-        if 200 == response.status_code:
-            return response.json()
+        jobs = []
+        if response:
+            if 200 == response.status_code:
+                jobs = response.json()
+            else:
+                logging.error("GET - %s/rest/jobs/list: (%d) %s" % (self.url,response.json()["error"],response.json()["message"])) 
         else:
-            logging.error("GET - %s/rest/jobs/list: (%d) %s" % (self.url,response.json()["error"],response.json()["message"])) 
-            return []
+            logging.error("GET - %s/rest/jobs/list: failed")
+        return jobs 
 
     def get_scheduled_jobs(self):
         """
         Return a list with the names of all scheduled jobs.
         """
         params = { "auth"  : self.token }
-        jobs = self.__get("/rest/jobs/scheduled",params)
-        if not jobs:
-            return []
+        response = self.__get("/rest/jobs/scheduled",params)
+        jobs = []
+        if response:
+            if 200 == response.status_code:
+                jobs = response.json()
+            else:
+                logging.error("GET - %s/rest/jobs/scheduled: (%d) %s" % (self.url,response.json()["error"],response.json()["message"])) 
         else:
-            logging.error("GET - %s/rest/jobs/scheduled: (%d) %s" % (self.url,response.json()["error"],response.json()["message"])) 
-            return jobs
+            logging.error("GET - %s/rest/jobs/scheduled: failed")
+        return jobs 
 
     def start_job(self,name):
         """
@@ -247,7 +268,7 @@ class KiwibesServer():
         logging.info("Retrieving complete information for job: %s" % name)        
         params = { "auth"  : self.token }
         response = self.__get("/rest/jobs/scheduled",params)
-        if 200 == response.status_code:
+        if response and 200 == response.status_code:
             return response.json()
         else:
             logging.error("GET - %s/rest/job/details/%s: (%d) %s" % (self.url,name,response.json()["error"],response.json()["message"])) 

@@ -21,6 +21,9 @@ Summary
 -------
 Test the startup behavior of the Kiwibes Automation Server
 """
+#import sys 
+#sys.path.append('../util')
+
 import util
 import os
 import json

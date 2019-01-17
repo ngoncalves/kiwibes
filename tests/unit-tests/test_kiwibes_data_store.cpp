@@ -26,7 +26,7 @@
 
 #include <fstream>
 #include <chrono>
-
+#include <algorithm>
 #include <iostream>
 #include <cstring>
 
@@ -148,4 +148,30 @@ void test_data_store_size(void)
       ASSERT(ERROR_NO_ERROR == ds_one.write(key,"my test"));    
     }
   }  
+}
+
+void test_data_store_get_keys(void)
+{
+  KiwibesDataStore ds(1);
+  std::vector<std::string> keys;
+
+  // if the data store is empty, no keys are returned
+  ds.get_keys(keys);
+  ASSERT(0 == keys.size());
+
+  // write a few values onto the data store
+  ASSERT(ERROR_NO_ERROR == ds.write("test","my test"));
+  ASSERT(ERROR_NO_ERROR == ds.write("test1","my test"));
+  ASSERT(ERROR_NO_ERROR == ds.write("test2","my test"));
+  ASSERT(ERROR_NO_ERROR == ds.write("test3","my test"));
+
+  ds.get_keys(keys);
+  ASSERT(4 == keys.size());
+
+  std::vector<std::string> expected_keys = { "test", "test1", "test2", "test3"};
+ 
+  std::sort(keys.begin(),keys.end());
+  std::sort(expected_keys.begin(),expected_keys.end());
+
+  ASSERT(expected_keys == keys);
 }

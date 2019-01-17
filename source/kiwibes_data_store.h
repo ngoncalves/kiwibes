@@ -32,6 +32,7 @@
 #include <map>
 #include <mutex>
 #include <string>
+#include <vector>
 
 class KiwibesDataStore {
 
@@ -63,6 +64,12 @@ public:
     @return ERROR_NO_ERROR if successfull, error code otherwise
   */
   T_KIWIBES_ERROR read(std::string &value, const std::string &key);
+
+  /** Return the list of all keys
+
+    @param keys  on return contains the list of keys
+  */
+  void get_keys(std::vector<std::string> &keys);
 
   /** Clear the given key-value pair
 
