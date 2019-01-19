@@ -59,6 +59,22 @@ def test_get_invalid_url():
 	result = requests.get('https://127.0.0.1:4242/does/not/exist',params=token,verify=False)
 	assert 404 == result.status_code
 
+def test_ping_server(): 
+	"""
+	Use the ping REST call to check if the server is reachable
+	and that the authentication token is valid
+	"""
+	# pinging with an invalid token returns an error
+	token = {"auth" : "blablablabla"}
+	result = requests.post('https://127.0.0.1:4242/rest/ping',params=token,verify=False)
+	assert 404 == result.status_code
+	assert util.KIWIBES_ERRORS['ERROR_AUTHENTICATION_FAIL'] == result.json()["error"]
+
+	# pinging with valid token is OK
+	token = {"auth" : "validation-rest-calls"}
+	result = requests.post('https://127.0.0.1:4242/rest/ping',params=token,verify=False)
+	assert 200 == result.status_code
+
 def test_http_connections_not_accepted(): 
 	"""
 	Plain HTTP connections are not accepted

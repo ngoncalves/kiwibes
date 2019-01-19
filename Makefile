@@ -64,7 +64,7 @@ vld-kiwibes: kiwibes
 	-python -W ignore -m pytest -v $(VLD_TESTS)
 
 test-python-client: kiwibes
-	-python -W ignore -m pytest -v $(VLD_TESTS)/clients/python
+	-python -W ignore -m pytest -v $(TESTS)/clients/python
 
 #----------------------------------------------------------------------------
 # OpenSSL Options

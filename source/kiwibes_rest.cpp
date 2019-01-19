@@ -132,6 +132,13 @@ static void rest_post_clear_data(const httplib::Request& req, httplib::Response&
  */
 static void rest_post_clear_all_data(const httplib::Request& req, httplib::Response& res);
 
+/** REST: Ping the server
+
+  @param req  the incoming HTTP request
+  @param res  the outgoing HTTP response
+ */
+static void rest_post_ping(const httplib::Request& req, httplib::Response& res);
+
 /** REST: Get data
 
   @param req  the incoming HTTP request
@@ -173,6 +180,8 @@ void setup_rest_interface(httplib::SSLServer *https,
   https->Post("/rest/job/delete/([a-zA-Z_0-9]+)",rest_post_delete_job);    
   https->Post("/rest/job/clear_pending/([a-zA-Z_0-9]+)",rest_post_clear_pending_job);    
   https->Get( "/rest/job/details/([a-zA-Z_0-9]+)",rest_get_get_job);
+
+  https->Post("/rest/ping",rest_post_ping);
 
   https->Post("/rest/data/write/([a-zA-Z_0-9]+)",rest_post_write_data);    
   https->Post("/rest/data/clear/([a-zA-Z_0-9]+)",rest_post_clear_data);    
@@ -302,15 +311,9 @@ static void rest_post_edit_job(const httplib::Request& req, httplib::Response& r
       pScheduler->unschedule_job(req.matches[1]);
       pScheduler->schedule_job(req.matches[1]);
     }
-    else if(0 == schedule.size())
+    else
     {
       pScheduler->unschedule_job(req.matches[1]);  
-    }
-    else if((0 < schedule.size()) && (false == cron.is_valid()))
-    {
-      /* invalid schedule, delete the job */
-      pDatabase->delete_job(req.matches[1]);
-      error = ERROR_JOB_SCHEDULE_INVALID;
     }
   }
   
@@ -523,6 +526,25 @@ static void rest_get_data_store_keys(const httplib::Request& req, httplib::Respo
   }
   
   set_return_code(res,error); 
+}
+
+static void rest_post_ping(const httplib::Request& req, httplib::Response& res)
+{
+  T_KIWIBES_ERROR error = ERROR_NO_ERROR;
+
+  if((true != req.has_param("auth")) ||
+     (true != pAuthentication->verify_auth_token(req.get_param_value("auth")))
+    )
+  {
+    error = ERROR_AUTHENTICATION_FAIL; 
+  }
+  else
+  {
+    res.status = 200;
+    res.set_content("pong","text/plain");   
+  }
+  
+  set_return_code(res,error);
 }
 
 static bool read_job_parameters(nlohmann::json &params, const httplib::Request &req)
