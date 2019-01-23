@@ -496,8 +496,3 @@ def test_clear_job_queue():
 	assert result.json()["status"]        == "stopped"
 	assert result.json()["pending-start"] == 0
 	assert result.json()["nbr-runs"]      == 1
-
-Extra tests: input validation
-	- empty parameters when creating or editing a job 
-	- jobs with invalid programs can be executed 
-	- can create job names with start, stop, create and edit	

@@ -49,7 +49,7 @@ help:
 	@echo '  kiwibes-demo		: setup and run a demo instance of Kiwibes'
 	@echo '  test-python-client	: test the Python client'
 	@echo '  clean        		: clear the build directory'
-	@echo '  help         		: this text'
+	@echo '  help         		: show this help text'
 	@echo '--------------------------------------------------------------------------'
 
 kiwibes:

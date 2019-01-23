@@ -177,8 +177,3 @@ def test_post_data_store_get_keys():
 	result = requests.get('https://127.0.0.1:4242/rest/data/keys',params=token,verify=False)
 	assert 200 == result.status_code
 	assert sorted(keys) == sorted(result.json())
-
-Extra tests: input validation
-	- key is empty string 
-	- value is empty string 
-	- key name is write, read or keys 
